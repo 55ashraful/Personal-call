@@ -1,17 +1,11 @@
-/* ================================================================
-   app.js — সম্পূর্ণ রিয়েল অ্যাপ লজিক
-   কোনো ডেমো নেই, কোনো ফেক ডেটা নেই
-   শুধু রিয়েল ফোন নম্বর, রিয়েল OTP, রিয়েল ইউজার
-   ================================================================ */
 (function () {
   'use strict';
 
-  /* --- স্টেট --- */
   var S = {
     user: null,
-    users: [],       /* রিয়েল ইউজার লিস্ট Firestore থেকে */
-    chatList: [],    /* চ্যাট লিস্ট Firestore থেকে */
-    chatMsgs: {},    /* cid → [msg] */
+    users: [],
+    chatList: [],
+    chatMsgs: {},
     groups: [],
     chatTarget: null,
     chatUnsub: null,
@@ -42,7 +36,6 @@
     isEmailReg: false
   };
 
-  /* --- DOM --- */
   var q = function (s) { return document.querySelector(s); };
   var qa = function (s) { return document.querySelectorAll(s); };
 
@@ -69,7 +62,6 @@
     searchBtn: q('#searchBtn'), menuBtn: q('#menuBtn'), newChatFab: q('#newChatFab')
   };
 
-  /* --- ইউটিলিটি --- */
   function toast(m, t) {
     D.toast.textContent = m;
     D.toast.className = 'show' + (t ? ' ' + t : '');
@@ -109,7 +101,6 @@
     return new Date(ts).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true });
   }
 
-  /* ইউজার খোঁজা uid দিয়ে */
   function findUser(uid) {
     return S.users.find(function (u) { return u.id === uid; });
   }
@@ -118,11 +109,11 @@
   function enableSec() {
     D.secOv.classList.add('on');
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'PrintScreen') { e.preventDefault(); toast('স্ক্রিনশট নেওয়া নিষিদ্ধ', 'err'); }
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); toast('সেভ করা নিষিদ্ধ', 'err'); }
+      if (e.key === 'PrintScreen') { e.preventDefault(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); }
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) { e.preventDefault(); }
       if (e.key === 'F12') { e.preventDefault(); }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'u') { e.preventDefault(); toast('সোর্স কোড দেখা নিষিদ্ধ', 'err'); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'u') { e.preventDefault(); }
     });
     document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     document.addEventListener('copy', function (e) { e.preventDefault(); });
@@ -196,10 +187,10 @@
   }
 
   /* ================================================================
-     লগইন ফ্লো — সব রিয়েল
+     লগইন ফ্লো
      ================================================================ */
 
-  /* ফোন OTP পাঠানো — রিয়েল ফোনে SMS যাবে */
+  /* ফোন OTP পাঠানো */
   D.sendOtpBtn.addEventListener('click', async function () {
     var phone = D.phoneIn.value.trim();
     if (!phone || phone.length < 7) { toast('সঠিক ফোন নম্বর দিন', 'err'); return; }
@@ -226,10 +217,10 @@
     D.sendOtpBtn.textContent = 'ভেরিফিকেশন কোড পাঠান';
   });
 
-  /* OTP ভেরিফাই — রিয়েল কোড চেক হবে */
+  /* OTP ভেরিফাই — এখানেই বাগ ছিল */
   D.verifyOtpBtn.addEventListener('click', async function () {
     var code = getOTP();
-    if (code.length !== 6) { toast '৬ সংখ্যার কোড দিন', 'err'); return; }
+    if (code.length !== 6) { toast('৬ সংখ্যার কোড দিন', 'err'); return; }
 
     D.verifyOtpBtn.disabled = true;
     D.verifyOtpBtn.innerHTML = '<span class="sp"></span>';
@@ -272,9 +263,9 @@
 
   /* ইমেইল সাবমিট */
   D.emailSubmitBtn.addEventListener('click', async function () {
-    var name = D.emailNameIn.value.trim(),
-        email = D.emailAddrIn.value.trim(),
-        pass = D.emailPassIn.value;
+    var name = D.emailNameIn.value.trim();
+    var email = D.emailAddrIn.value.trim();
+    var pass = D.emailPassIn.value;
 
     if (!email || !pass) { toast('ইমেইল ও পাসওয়ার্ড দিন', 'err'); return; }
     if (pass.length < 6) { toast('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে', 'err'); return; }
@@ -321,28 +312,24 @@
   });
 
   /* ================================================================
-     মূল স্ক্রিনে প্রবেশ — রিয়েল ডেটা লোড করবে
+     মূল স্ক্রিনে প্রবেশ
      ================================================================ */
   function enterMain() {
     enableSec();
     DB.setOn(S.user.uid);
 
-    /* রিয়েল ইউজার লিস্ট লিসেন করা — শুধু রিয়েল রেজিস্টার্ড ইউজার */
     S.unsubUsers = DB.onUsers(S.user.uid, function (users) {
       S.users = users;
       renderChatList();
     });
 
-    /* রিয়েল চ্যাট লিস্ট লিসেন করা */
     S.chatListUnsub = DB.onChatList(S.user.uid, function (chats) {
       S.chatList = chats;
       renderChatList();
     });
 
-    /* রিয়েল ইনকামিং কল লিসেন করা */
     S.unsubCalls = DB.onIncCall(S.user.uid, handleIncomingCall);
 
-    /* রিয়েল গ্রুপ লিসেন করা */
     S.unsubGroups = DB.onGroups(S.user.uid, function (groups) {
       S.groups = groups;
       renderGroupList();
@@ -352,13 +339,12 @@
   }
 
   /* ================================================================
-     চ্যাট লিস্ট রেন্ডার — শুধু রিয়েল চ্যাট
+     চ্যাট লিস্ট রেন্ডার
      ================================================================ */
   function renderChatList() {
     var html = '';
 
     if (S.chatList.length === 0) {
-      /* কোনো চ্যাট না থাকলে সব রিয়েল ইউজার দেখাও যাতে কল/মেসেজ করা যায় */
       if (S.users.length === 0) {
         html = '<div class="empty-st"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg><p>এখনো কোনো ব্যবহারকারী নেই।<br>অন্য কেউ রেজিস্টার করলে এখানে দেখাবে।</p></div>';
       } else {
@@ -371,18 +357,16 @@
         });
       }
     } else {
-      /* আগে চ্যাট করা ইউজারগুলো উপরে */
       S.chatList.forEach(function (chat) {
         var parts = chat.parts;
         var otherUid = parts[0] === S.user.uid ? parts[1] : parts[0];
         var u = findUser(otherUid);
-        if (!u) return; /* ইউজার ডিলিট হলে স্কিপ */
+        if (!u) return;
 
         var lastTxt = chat.lastMsg ? chat.lastMsg.text : 'কোনো মেসেজ নেই';
         var lastTime = chat.lastMsg && chat.lastMsg.ts ? fmtTimeShort(chat.lastMsg.ts) : '';
         var isOut = chat.lastMsg && chat.lastMsg.sid === S.user.uid;
         var tickHtml = isOut ? '<span class="tick">\u2713\u2713</span>' : '';
-        var statusTxt = u.online ? 'অনলাইন' : 'অফলাইন';
 
         html += '<div class="chat-row" data-uid="' + u.id + '">' +
           '<img class="av" src="' + u.avatar + '" alt="">' +
@@ -391,7 +375,6 @@
           '</div>';
       });
 
-      /* যাদের সাথে এখনো চ্যট হয়নি তাদের নিচে */
       var chattedUids = S.chatList.map(function (c) {
         var p = c.parts;
         return p[0] === S.user.uid ? p[1] : p[0];
@@ -400,7 +383,7 @@
         if (chattedUids.indexOf(u.id) === -1) {
           html += '<div class="chat-row" data-uid="' + u.id + '">' +
             '<img class="av" src="' + u.avatar + '" alt="">' +
-            '<div class="det"><h4>' + u.name + '</h4><p>অনলাইন স্ট্যাটাস অনুযায়ী</p></div>' +
+            '<div class="det"><h4>' + u.name + '</h4><p>চ্যাট শুরু করুন</p></div>' +
             '</div>';
         }
       });
@@ -408,11 +391,9 @@
 
     D.tabChats.innerHTML = html;
 
-    /* ক্লিক ইভেন্ট */
     D.tabChats.querySelectorAll('.chat-row').forEach(function (row) {
       row.addEventListener('click', function () {
-        var uid = row.getAttribute('data-uid');
-        openChat(uid);
+        openChat(row.getAttribute('data-uid'));
       });
     });
   }
@@ -436,7 +417,7 @@
   }
 
   /* ================================================================
-     চ্যাট ওপেন — রিয়েল মেসেজ লোড
+     চ্যাট ওপেন
      ================================================================ */
   function openChat(uid) {
     var user = findUser(uid);
@@ -452,12 +433,10 @@
 
     renderMessages(cid);
 
-    /* রিয়েল-টাইম মেসেজ লিসেনার */
     if (S.chatUnsub) S.chatUnsub();
     S.chatUnsub = DB.onMsgs(cid, function (changes) {
       changes.forEach(function (c) {
         if (c.t === 'added') {
-          /* ডুপ্লিকেট চেক */
           var exists = S.chatMsgs[cid].some(function (m) { return m._id === c.d._id; });
           if (!exists) S.chatMsgs[cid].push(c.d);
         }
@@ -465,7 +444,6 @@
       renderMessages(cid);
     });
 
-    /* টাইপিং লিসেনার */
     if (S.typingUnsub) S.typingUnsub();
     S.typingUnsub = DB.onTyping(cid, S.user.uid, function (isTyping) {
       D.chatStatusP.textContent = isTyping ? 'টাইপ করছে...' : (user.online ? 'অনলাইন' : 'অফলাইন');
@@ -524,7 +502,6 @@
       var tickHtml = isOut ? '<span class="tick">\u2713\u2713</span>' : '';
       var senderName = '';
 
-      /* গ্রুপে অন্যের নাম দেখাও */
       if (S.chatTarget && S.chatTarget.type === 'group' && !isOut) {
         var sender = findUser(m.senderId);
         senderName = sender ? '<div style="font-size:12px;color:var(--wa-teal);margin-bottom:2px">' + sender.name + '</div>' : '';
@@ -541,7 +518,7 @@
   }
 
   /* ================================================================
-     মেসেজ পাঠানো — রিয়েল Firestore এ যাবে
+     মেসেজ পাঠানো
      ================================================================ */
   D.chatTa.addEventListener('input', function () {
     D.sendMsgBtn.disabled = !D.chatTa.value.trim();
@@ -573,7 +550,6 @@
       timestamp: Date.now()
     };
 
-    /* রিয়েল মেসেজ Firestore এ সেভ হবে */
     DB.sendMsg(cid, msg);
     DB.clearTyping(cid, S.user.uid);
 
@@ -582,7 +558,6 @@
     D.sendMsgBtn.disabled = true;
   }
 
-  /* চ্যাট থেকে ফিরে আসা */
   D.chatBackBtn.addEventListener('click', function () {
     if (S.chatUnsub) { S.chatUnsub(); S.chatUnsub = null; }
     if (S.typingUnsub) { S.typingUnsub(); S.typingUnsub = null; }
@@ -606,13 +581,6 @@
   });
 
   /* ================================================================
-     কল হিস্ট্রি ট্যাব
-     ================================================================ */
-  function renderCallHistory() {
-    D.tabCalls.innerHTML = '<div class="empty-st"><p>কল হিস্ট্রি এখানে দেখাবে</p></div>';
-  }
-
-  /* ================================================================
      সেটিংস
      ================================================================ */
   D.menuBtn.addEventListener('click', function () { renderSettings(); go(D.mainScr, D.setScr, 'from-l'); });
@@ -623,7 +591,6 @@
     var html = '<div class="set-header">প্রোফাইল</div>';
     html += '<div class="set-item"><img src="' + u.avatar + '" style="width:48px;height:48px;border-radius:50%;object-fit:cover"><div class="si-text"><h4>' + u.name + '</h4><p>' + (u.phone || u.email || '') + '</p></div></div>';
 
-    /* নতুন ইউজার হলে নাম পরিবর্তন অপশন */
     if (u.isNew) {
       html += '<div class="set-item" id="editNameItem"><div class="si-icon" style="background:var(--wa-teal)"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></div><div class="si-text"><h4>নাম পরিবর্তন করুন</h4><p>আপনার নাম সেট করুন</p></div></div>';
     }
@@ -634,7 +601,6 @@
 
     D.setList.innerHTML = html;
 
-    /* নাম পরিবর্তন */
     var editItem = q('#editNameItem');
     if (editItem) {
       editItem.addEventListener('click', function () {
@@ -648,7 +614,6 @@
       });
     }
 
-    /* লগআউট */
     var logoutItem = q('#logoutItem');
     if (logoutItem) {
       logoutItem.addEventListener('click', async function () {
@@ -713,7 +678,7 @@
   });
 
   /* ================================================================
-     রিয়েল কল সিস্টেম
+     কল সিস্টেম
      ================================================================ */
   function startCall(uid, type) {
     var user = findUser(uid);
@@ -744,7 +709,6 @@
 
     playRing();
 
-    /* Firestore এ কল ডকুমেন্ট তৈরি — অপর পাশে নোটিফিকেশন যাবে */
     DB.mkCall({
       callerId: S.user.uid,
       calleeId: uid,
@@ -755,7 +719,6 @@
     }).then(function (docId) {
       S.callDocId = docId;
       if (docId) {
-        /* কল স্ট্যাটাস ট্র্যাক করা */
         DB.onCallUpd(docId, function (data) {
           if (data.status === 'accepted') {
             S.callPhase = 'connected';
@@ -791,23 +754,6 @@
     navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(function (stream) {
       S.localStream = stream;
       D.locVid.srcObject = stream;
-
-      /* ZEGO দিয়ে রিমোট স্ট্রিম পাবে */
-      var roomId = 'rm_pending';
-      DB.onCallUpd(S.callDocId, function (data) {
-        if (data.roomId && data.roomId !== roomId) {
-          roomId = data.roomId;
-          DB.initZego(roomId, S.user.uid, S.user.name).then(function (zg) {
-            if (zg) {
-              S.zegoInstance = zg;
-              zg.startPublishingStream('local_' + S.user.uid, stream);
-              zg.on('IMRecvBroadcastMessage', function (msg) {
-                /* পিয়ার স্ট্রিম আইডি পেলে প্লে করো */
-              });
-            }
-          });
-        }
-      });
     }).catch(function () {
       toast('ক্যামেরা/মাইক অ্যাক্সেস দিন', 'err');
     });
@@ -818,21 +764,16 @@
     playTone(600, 300, 0.25);
     if (S.callTimerIv) { clearInterval(S.callTimerIv); S.callTimerIv = null; }
     if (S.localStream) { S.localStream.getTracks().forEach(function (t) { t.stop(); }); S.localStream = null; }
-    if (S.zegoInstance) { try { S.zegoInstance.logoutRoom(); } catch (e) {} S.zegoInstance = null; }
     if (S.callDocId) { DB.updCall(S.callDocId, 'ended'); }
-
     D.locVid.srcObject = null;
     D.remVid.srcObject = null;
-
     S.callActive = false;
     S.callPhase = 'idle';
     S.callTarget = null;
     S.callDocId = null;
-
     D.callScr.classList.remove('on');
   }
 
-  /* কল কন্ট্রোল */
   D.muteBtn.addEventListener('click', function () {
     S.isMuted = !S.isMuted;
     D.muteBtn.classList.toggle('off', S.isMuted);
@@ -850,12 +791,11 @@
   });
   D.endBtn.addEventListener('click', endCall);
 
-  /* চ্যাট থেকে কল */
   D.chatCallBtn.addEventListener('click', function () { if (S.chatTarget && S.chatTarget.uid) startCall(S.chatTarget.uid, 'audio'); });
   D.chatVidBtn.addEventListener('click', function () { if (S.chatTarget && S.chatTarget.uid) startCall(S.chatTarget.uid, 'video'); });
 
   /* ================================================================
-     ইনকামিং কল — রিয়েল, অন্য ইউজার থেকে আসবে
+     ইনকামিং কল
      ================================================================ */
   function handleIncomingCall(call) {
     if (S.callActive) { DB.updCall(call.id, 'ended'); return; }
@@ -881,7 +821,6 @@
     S.callTarget = caller || { id: call.callerId, name: name, avatar: avatar };
   }
 
-  /* একসেপ্ট */
   D.accBtn.addEventListener('click', function () {
     D.incPop.classList.remove('on');
     stopRing();
@@ -900,10 +839,8 @@
     D.callScr.classList.remove('slide-up');
     D.callScr.classList.add('on');
 
-    /* Firestore এ accepted মার্ক করা — কলারকে জানাবে */
     DB.updCall(S.callDocId, 'accepted');
 
-    /* কল স্ট্যাটাস ট্র্যাক */
     DB.onCallUpd(S.callDocId, function (data) {
       if (data.status === 'ended') endCall();
     });
@@ -912,7 +849,6 @@
     if (S.callType === 'video') setupVideoCall();
   });
 
-  /* রিজেক্ট */
   D.rejBtn.addEventListener('click', function () {
     D.incPop.classList.remove('on');
     stopRing();
@@ -940,11 +876,10 @@
   });
 
   /* ================================================================
-     ইনিশিয়ালাইজেশন — কনফিগ না থাকলে শুরুই হবে না
+     ইনিশিয়ালাইজেশন
      ================================================================ */
   try {
     DB.init();
-    /* অটো লগইন চেক — আগে লগইন থাকলে আবার লগইন করতে হবে না */
     DB.onAuth(function (user) {
       if (user) {
         S.user = user;
@@ -952,16 +887,14 @@
       }
     });
   } catch (e) {
-    /* Firebase কনফিগ না থাকলে এখানে আসবে */
     document.getElementById('phoneScr').innerHTML =
       '<div class="login-card">' +
       '<div class="login-logo"><svg viewBox="0 0 24 24" style="width:36px;height:36px;fill:#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>' +
-      '<h1 style="color:var(--wa-danger)">সেটআপ প্রয়োজন</h1>' +
-      '<p class="sub">config.js ফাইলে আপনার Firebase ক্রেডেনশিয়াল বসান।<br>কোনো ডেমো নেই — সব রিয়েল।</p>' +
+      '<h1 style="color:var(--wa-danger)">সেটআপ ত্রুটি</h1>' +
+      '<p class="sub">' + e.message + '</p>' +
       '</div>';
   }
 
-  /* পেজ আনলোডে অফলাইন মার্ক */
   window.addEventListener('beforeunload', function () {
     if (S.user) DB.setOff(S.user.uid);
     stopRing();
