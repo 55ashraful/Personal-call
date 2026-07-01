@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="X-Frame-Options" content="DENY">
+<meta name="referrer" content="no-referrer">
+<title>Personal Call</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--wa-dark:#111b21;--wa-panel:#1f2c34;--wa-bg:#0b141a;--wa-bar:#202c33;
+--wa-teal:#00a884;--wa-teal-dark:#008f72;--wa-bubble-out:#005c4b;
+--wa-bubble-in:#202c33;--wa-text:#e9edef;--wa-text2:#8696a0;--wa-text3:#667781;
+--wa-border:#2a3942;--wa-overlay:rgba(0,0,0,0.6);--wa-danger:#ea0038;
+--wa-tick:#53bdeb;--radius:8px;
+}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#000;color:var(--wa-text);-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+input,textarea{-webkit-user-select:text;user-select:text}
+#app{width:100%;height:100%;max-width:500px;margin:0 auto;position:relative;overflow:hidden;background:var(--wa-bg)}
+@media(min-width:501px){#app{border-left:1px solid var(--wa-border);border-right:1px solid var(--wa-border)}}
+
+/* স্ক্রিন সিস্টেম */
+.scr{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;visibility:hidden;transform:translateX(30px);transition:all .3s ease;pointer-events:none}
+.scr.on{opacity:1;visibility:visible;transform:translateX(0);pointer-events:auto}
+.scr.from-l{transform:translateX(-30px)}.scr.from-l.on{transform:translateX(0)}
+.scr.slide-up{transform:translateY(100%)}.scr.slide-up.on{transform:translateY(0)}
+
+/* টোস্ট */
+#toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-80px);padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:99999;transition:transform .35s cubic-bezier(.34,1.56,.64,1);max-width:90%;text-align:center;pointer-events:none;background:var(--wa-panel);color:var(--wa-text);border:1px solid var(--wa-border)}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.err{color:var(--wa-danger)}#toast.ok{color:var(--wa-teal)}
+
+/* টপ বার */
+.topbar{height:56px;background:var(--wa-bar);display:flex;align-items:center;padding:0 12px;flex-shrink:0;border-bottom:1px solid var(--wa-border);z-index:10}
+.topbar .back{width:40px;height:40px;border:none;background:none;color:var(--wa-text2);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:50%;flex-shrink:0}
+.topbar .back:hover{background:rgba(255,255,255,.05)}
+.topbar .back svg{width:24px;height:24px;fill:var(--wa-text2)}
+.topbar .info{flex:1;min-width:0;margin-left:8px}
+.topbar .info h3{font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.topbar .info p{font-size:12px;color:var(--wa-text2);line-height:1.3}
+.topbar .acts{display:flex;gap:4px;flex-shrink:0}
+.tbtn{width:40px;height:40px;border:none;background:none;color:var(--wa-text2);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:50%}
+.tbtn:hover{background:rgba(255,255,255,.05)}
+.tbtn svg{width:22px;height:22px;fill:var(--wa-text2)}
+.av-sm{width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--wa-panel)}
+
+/* লগইন স্ক্রিন */
+#loginScr{background:var(--wa-bg);align-items:center;justify-content:center;padding:24px}
+.login-bg{position:absolute;inset:0;overflow:hidden}
+.login-bg::before{content:'';position:absolute;width:300px;height:300px;top:-100px;right:-80px;background:radial-gradient(circle,rgba(0,168,132,.08),transparent 70%)}
+.login-bg::after{content:'';position:absolute;width:250px;height:250px;bottom:-80px;left:-60px;background:radial-gradient(circle,rgba(0,168,132,.06),transparent 70%)}
+.login-card{width:100%;max-width:400px;position:relative;z-index:1;text-align:center}
+.login-logo{width:72px;height:72px;margin:0 auto 20px;background:var(--wa-teal);border-radius:50%;display:flex;align-items:center;justify-content:center}
+.login-logo svg{width:36px;height:36px;fill:#fff}
+.login-card h1{font-size:24px;font-weight:600;color:var(--wa-teal);margin-bottom:4px}
+.login-card .sub{font-size:13px;color:var(--wa-text2);margin-bottom:28px;line-height:1.5}
+.fg{position:relative;margin-bottom:14px;text-align:left}
+.fg input{width:100%;padding:14px 16px 14px 48px;background:var(--wa-panel);border:none;border-radius:var(--radius);color:var(--wa-text);font-size:14px;outline:none;transition:box-shadow .2s}
+.fg input::placeholder{color:var(--wa-text3)}
+.fg input:focus{box-shadow:0 0 0 2px var(--wa-teal)}
+.fg .fi{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:20px;height:20px;fill:var(--wa-text3);pointer-events:none}
+.fg .fi-focus{fill:var(--wa-teal)}
+.fg input:focus~.fi{fill:var(--wa-teal)}
+.pbtn{width:100%;padding:13px;border:none;border-radius:var(--radius);background:var(--wa-teal);color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s;margin-top:8px}
+.pbtn:hover{background:var(--wa-teal-dark)}
+.pbtn:disabled{opacity:.5;cursor:not-allowed}
+.pbtn.gbtn{background:transparent;border:1px solid var(--wa-border);color:var(--wa-text);font-weight:400;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:10px}
+.pbtn.gbtn:hover{background:rgba(255,255,255,.03)}
+.pbtn.gbtn svg{width:20px;height:20px}
+.lnk{background:none;border:none;color:var(--wa-teal);font-size:13px;cursor:pointer;margin-top:16px;display:inline-block}
+.lnk:hover{text-decoration:underline}
+.divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--wa-text3);font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--wa-border)}
+
+/* OTP স্ক্রিন */
+.otp-inputs{display:flex;gap:8px;justify-content:center;margin:20px 0}
+.otp-inputs input{width:48px;height:52px;text-align:center;font-size:22px;font-weight:600;background:var(--wa-panel);border:2px solid var(--wa-border);border-radius:var(--radius);color:var(--wa-text);outline:none;transition:border-color .2s}
+.otp-inputs input:focus{border-color:var(--wa-teal)}
+.otp-resend{font-size:12px;color:var(--wa-text2);margin-top:12px}
+.otp-resend button{background:none;border:none;color:var(--wa-teal);cursor:pointer;font-size:12px}
+.otp-resend button:disabled{color:var(--wa-text3);cursor:not-allowed}
+
+/* ট্যাব */
+.tabs{display:flex;background:var(--wa-bar);border-bottom:1px solid var(--wa-border);flex-shrink:0}
+.tab{flex:1;padding:14px 0;text-align:center;font-size:12.5px;font-weight:500;color:var(--wa-text3);cursor:pointer;position:relative;transition:color .2s;border:none;background:none}
+.tab.on{color:var(--wa-teal)}
+.tab.on::after{content:'';position:absolute;bottom:0;left:20%;right:20%;height:3px;background:var(--wa-teal);border-radius:3px 3px 0 0}
+
+/* চ্যাট লিস্ট */
+.chats-c{flex:1;overflow-y:auto;padding:4px 0}
+.chats-c::-webkit-scrollbar{width:4px}
+.chats-c::-webkit-scrollbar-thumb{background:var(--wa-border);border-radius:4px}
+.chat-row{display:flex;align-items:center;padding:10px 14px;cursor:pointer;transition:background .15s;gap:12px}
+.chat-row:hover{background:rgba(255,255,255,.03)}
+.chat-row:active{background:rgba(255,255,255,.05)}
+.chat-row .av{width:50px;height:50px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--wa-panel)}
+.chat-row .det{flex:1;min-width:0;border-bottom:1px solid rgba(255,255,255,.04);padding-bottom:10px}
+.chat-row .det h4{font-size:15px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
+.chat-row .det h4 .tick{color:var(--wa-tick);font-size:16px}
+.chat-row .det h4 .tick.read{color:var(--wa-text3)}
+.chat-row .det p{font-size:13px;color:var(--wa-text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.chat-row .meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.chat-row .meta .time{font-size:11px;color:var(--wa-text2)}
+.chat-row .meta .badge{background:var(--wa-teal);color:#fff;font-size:11px;font-weight:600;min-width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 5px}
+.unread .det h4,.unread .det p{color:var(--wa-text)!important;font-weight:500}
+
+/* চ্যাট ভিউ */
+.msgs-c{flex:1;overflow-y:auto;padding:6px 14px;display:flex;flex-direction:column;gap:2px;background:var(--wa-bg);background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5c-1 8-3 12-8 18s-12 8-17 12c5 1 10 0 14-3 3-2 6-6 8-10 2 5 5 9 9 11 4 2 9 2 14 0-5-4-11-7-16-13S31 13 30 5z' fill='rgba(255,255,255,0.02)'/%3E%3C/svg%3E")}
+.msgs-c::-webkit-scrollbar{width:4px}
+.msgs-c::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+.date-sep{text-align:center;margin:10px 0}
+.date-sep span{font-size:11.5px;color:var(--wa-text2);background:rgba(11,20,26,.9);padding:4px 12px;border-radius:6px}
+.msg{max-width:80%;display:flex;flex-direction:column;animation:mi .25s ease}
+.msg.out{align-self:flex-end;align-items:flex-end}
+.msg.in{align-self:flex-start;align-items:flex-start}
+@keyframes mi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.bbl{padding:6px 8px 8px;border-radius:8px;position:relative;word-break:break-word;font-size:14px;line-height:1.45}
+.msg.out .bbl{background:var(--wa-bubble-out);border-top-right-radius:0}
+.msg.in .bbl{background:var(--wa-bubble-in);border-top-left-radius:0}
+.msg .mt{font-size:11px;color:var(--wa-text2);margin-top:2px;display:flex;align-items:center;gap:3px}
+.msg.out .mt .tick{font-size:14px;color:var(--wa-tick)}
+.msg.out .mt .tick.read{color:var(--wa-text3)}
+.typing-dots{display:inline-flex;gap:3px;padding:4px 0}
+.typing-dots span{width:6px;height:6px;background:var(--wa-text2);border-radius:50%;animation:td 1.2s ease-in-out infinite}
+.typing-dots span:nth-child(2){animation-delay:.2s}
+.typing-dots span:nth-child(3){animation-delay:.4s}
+@keyframes td{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-4px);opacity:1}}
+.chat-bar{display:flex;align-items:flex-end;padding:6px 10px;gap:6px;background:var(--wa-bar);flex-shrink:0}
+.chat-bar .input-wrap{flex:1;display:flex;align-items:flex-end;background:var(--wa-panel);border-radius:24px;padding:6px 14px;min-height:44px;gap:8px}
+.chat-bar textarea{flex:1;border:none;background:none;color:var(--wa-text);font-size:14px;outline:none;resize:none;max-height:100px;line-height:1.4;padding:4px 0;font-family:inherit}
+.chat-bar textarea::placeholder{color:var(--wa-text3)}
+.chat-bar .sbtn{width:42px;height:42px;border-radius:50%;border:none;background:var(--wa-teal);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .2s}
+.chat-bar .sbtn:hover{background:var(--wa-teal-dark)}
+.chat-bar .sbtn:disabled{opacity:.4;cursor:not-allowed}
+.chat-bar .sbtn svg{width:20px;height:20px;fill:#fff}
+.chat-bar .embtn{width:36px;height:36px;border:none;background:none;color:var(--wa-text2);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:50%;flex-shrink:0}
+.chat-bar .embtn svg{width:22px;height:22px;fill:var(--wa-text2)}
+
+/* কল স্ক্রিন */
+#callScr{background:#000;z-index:100}
+.call-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(30px) brightness(.3);transform:scale(1.2)}
+.call-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+.call-info{position:relative;z-index:5;text-align:center;padding-top:100px;flex:1;display:flex;flex-direction:column;align-items:center}
+.call-info .cav{width:100px;height:100px;border-radius:50%;object-fit:cover;margin-bottom:16px;border:2px solid rgba(255,255,255,.2)}
+.call-info h2{font-size:24px;font-weight:500;margin-bottom:4px}
+.call-info .cst{font-size:14px;color:rgba(255,255,255,.7)}
+.call-info .ctimer{font-size:15px;color:var(--wa-teal);margin-top:2px;font-variant-numeric:tabular-nums}
+.call-vid{position:absolute;inset:0;z-index:2}
+.call-vid video{width:100%;height:100%;object-fit:cover}
+.pip{position:absolute;top:60px;right:16px;width:100px;height:140px;border-radius:12px;overflow:hidden;border:2px solid rgba(255,255,255,.2);z-index:8;background:#1a1a1a;cursor:grab}
+.pip video{width:100%;height:100%;object-fit:cover}
+.pip.off::after{content:'';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--wa-panel)}
+.call-ctrls{position:relative;z-index:10;padding:30px 20px 50px;display:flex;align-items:center;justify-content:center;gap:20px;background:linear-gradient(to top,rgba(0,0,0,.8),transparent)}
+.ccb{width:56px;height:56px;border-radius:50%;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;background:rgba(255,255,255,.12);color:#fff;backdrop-filter:blur(8px)}
+.ccb svg{width:24px;height:24px;fill:#fff}
+.ccb .cl{font-size:9px;margin-top:3px;opacity:.8}
+.ccb:active{transform:scale(.9)}
+.ccb.off{background:var(--wa-danger)}
+.ccb.off::after{content:'';position:absolute;inset:-3px;border-radius:50%;border:2px solid var(--wa-danger);animation:pul 1.5s ease-in-out infinite}
+@keyframes pul{0%,100%{box-shadow:0 0 0 0 rgba(234,0,56,.4)}50%{box-shadow:0 0 0 6px rgba(234,0,56,0)}}
+.ccb.end{width:64px;height:64px;background:var(--wa-danger)}
+.ccb.end:hover{background:#c80030}
+
+/* ইনকামিং পপআপ */
+#incPop{position:absolute;inset:0;z-index:200;display:flex;align-items:flex-end;justify-content:center;background:var(--wa-overlay);backdrop-filter:blur(12px);opacity:0;visibility:hidden;transition:all .3s}
+#incPop.on{opacity:1;visibility:visible}
+.inc-card{width:100%;padding:36px 24px 48px;background:var(--wa-dark);border-radius:20px 20px 0 0;text-align:center;transform:translateY(100%);transition:transform .45s cubic-bezier(.34,1.56,.64,1)}
+#incPop.on .inc-card{transform:translateY(0)}
+.inc-handle{width:36px;height:4px;background:rgba(255,255,255,.2);border-radius:4px;margin:0 auto 24px}
+.inc-av{width:90px;height:90px;border-radius:50%;object-fit:cover;margin-bottom:16px;border:2px solid rgba(255,255,255,.15);animation:ir 2s ease-in-out infinite}
+@keyframes ir{0%,100%{box-shadow:0 0 0 0 rgba(0,168,132,.4)}50%{box-shadow:0 0 0 12px rgba(0,168,132,0)}}
+.inc-name{font-size:22px;font-weight:500;margin-bottom:4px}
+.inc-type{font-size:13px;color:var(--wa-text2);margin-bottom:32px}
+.inc-btns{display:flex;justify-content:center;gap:50px}
+.inc-b{display:flex;flex-direction:column;align-items:center;gap:8px;border:none;background:none;cursor:pointer}
+.inc-b .cir{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:transform .2s}
+.inc-b .cir svg{width:28px;height:28px;fill:#fff}
+.inc-b.acc .cir{background:var(--wa-teal)}
+.inc-b.rej .cir{background:var(--wa-danger)}
+.inc-b:active .cir{transform:scale(.9)}
+.inc-b span:last-child{font-size:11px;color:var(--wa-text2)}
+
+/* সেটিংস */
+.set-list{flex:1;overflow-y:auto;padding:8px 0}
+.set-item{display:flex;align-items:center;gap:14px;padding:14px 20px;cursor:pointer;transition:background .15s}
+.set-item:hover{background:rgba(255,255,255,.03)}
+.set-item .si-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.set-item .si-icon svg{width:20px;height:20px;fill:#fff}
+.set-item .si-text h4{font-size:15px;font-weight:400}
+.set-item .si-text p{font-size:12px;color:var(--wa-text2);margin-top:1px}
+.set-item .si-arrow{margin-left:auto;color:var(--wa-text3)}
+.set-item .si-arrow svg{width:18px;height:18px;fill:var(--wa-text3)}
+.toggle{width:44px;height:24px;background:var(--wa-text3);border-radius:12px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--wa-teal)}
+.toggle::after{content:'';position:absolute;width:20px;height:20px;background:#fff;border-radius:50%;top:2px;left:2px;transition:transform .2s}
+.toggle.on::after{transform:translateX(20px)}
+.set-divider{height:8px;background:rgba(0,0,0,.2)}
+.set-header{padding:20px 20px 12px;font-size:13px;color:var(--wa-teal);font-weight:500}
+
+/* গ্রুপ তৈরি */
+.grp-form{padding:16px 20px;display:flex;flex-direction:column;gap:14px}
+.grp-form input{width:100%;padding:12px 14px;background:var(--wa-panel);border:none;border-radius:var(--radius);color:var(--wa-text);font-size:14px;outline:none}
+.grp-form input:focus{box-shadow:0 0 0 2px var(--wa-teal)}
+.grp-members{max-height:250px;overflow-y:auto}
+.grp-members .gm{display:flex;align-items:center;gap:10px;padding:8px 0}
+.grp-members .gm label{flex:1;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:10px}
+.grp-members .gm input[type=checkbox]{width:18px;height:18px;accent-color:var(--wa-teal)}
+.grp-members .gm img{width:36px;height:36px;border-radius:50%;object-fit:cover}
+
+/* স্ক্রিনশট প্রটেকশন ওভারলে */
+#secOverlay{position:fixed;inset:0;z-index:99998;pointer-events:none;display:none}
+#secOverlay.on{display:block}
+
+/* স্পিনার */
+.sp{width:22px;height:22px;border:2.5px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* রিং অ্যানিমেশন */
+.ring-circles{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:3}
+.ring-circles .rc{position:absolute;border-radius:50%;border:1.5px solid rgba(255,255,255,.15);animation:rcp 2.5s ease-out infinite}
+.ring-circles .rc:nth-child(1){width:130px;height:130px;animation-delay:0s}
+.ring-circles .rc:nth-child(2){width:180px;height:180px;animation-delay:.6s}
+.ring-circles .rc:nth-child(3){width:230px;height:230px;animation-delay:1.2s}
+@keyframes rcp{0%{transform:scale(.8);opacity:.6}100%{transform:scale(1.2);opacity:0}}
+
+.fab{position:absolute;bottom:20px;right:16px;width:56px;height:56px;border-radius:16px;border:none;background:var(--wa-teal);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.3);z-index:5;transition:transform .2s}
+.fab:hover{transform:scale(1.05)}
+.fab svg{width:24px;height:24px;fill:#fff}
+
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+@supports(padding-top:env(safe-area-inset-top)){.topbar{padding-top:env(safe-area-inset-top)}.call-ctrls{padding-bottom:calc(env(safe-area-inset-bottom)+20px)}.inc-card{padding-bottom:calc(env(safe-area-inset-bottom)+36px)}}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="toast"></div>
+<div id="secOverlay"></div>
+
+<!-- লগইন: ফোন নম্বর -->
+<section id="phoneScr" class="scr on" aria-label="ফোন নম্বর">
+<div class="login-bg"></div>
+<div class="login-card">
+<div class="login-logo"><svg viewBox="0 0 24 24"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg></div>
+<h1>Personal Call</h1>
+<p class="sub">ভিডিও কল, অডিও কল ও চ্যাট অ্যাপ</p>
+<div class="fg">
+<input type="tel" id="phoneIn" placeholder="ফোন নম্বর (যেকোনো দেশের)" maxlength="15" autocomplete="off">
+<svg class="fi" viewBox="0 0 24 24"><path d="M6.62 10.79a15.053 15.053 0 0 0 6.59 6.59l2.2-2.2a1.003 1.003 0 0 1 1.01-.24c1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.1.31.03.66-.25 1.02l-2.2 2.2z"/></svg>
+</div>
+<button class="pbtn" id="sendOtpBtn">ভেরিফিকেশন কোড পাঠান</button>
+<div class="divider">অথবা</div>
+<button class="pbtn gbtn" id="googleLoginBtn">
+<svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+Google দিয়ে সাইন ইন করুন
+</button>
+<button class="lnk" id="showEmailLogin">ইমেইল দিয়ে সাইন ইন করুন</button>
+</div>
+</section>
+
+<!-- লগইন: ইমেইল -->
+<section id="emailScr" class="scr" aria-label="ইমেইল লগইন">
+<div class="topbar">
+<button class="back" id="emailBack"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+<div class="info"><h3>ইমেইল সাইন ইন</h3></div>
+</div>
+<div style="flex:1;padding:24px 20px;display:flex;flex-direction:column;gap:14px;justify-content:center">
+<div class="fg" id="emailNameGrp" style="display:none">
+<input type="text" id="emailNameIn" placeholder="আপনার নাম" autocomplete="off">
+<svg class="fi" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+</div>
+<div class="fg">
+<input type="email" id="emailAddrIn" placeholder="ইমেইল ঠিকানা" autocomplete="off">
+<svg class="fi" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+</div>
+<div class="fg">
+<input type="password" id="emailPassIn" placeholder="পাসওয়ার্ড (ন্যূনতম ৬ অক্ষর)">
+<svg class="fi" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+</div>
+<button class="pbtn" id="emailSubmitBtn">সাইন ইন করুন</button>
+<button class="lnk" id="toggleEmailReg">নতুন অ্যাকাউন্ট তৈরি করুন</button>
+</div>
+</section>
+
+<!-- OTP ভেরিফিকেশন -->
+<section id="otpScr" class="scr" aria-label="OTP ভেরিফিকেশন">
+<div class="topbar">
+<button class="back" id="otpBack"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+<div class="info"><h3>ভেরিফিকেশন কোড</h3><p id="otpPhone">-</p></div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+<p style="font-size:14px;color:var(--wa-text2);text-align:center;margin-bottom:20px;line-height:1.6" id="otpMsg">6 সংখ্যার কোড টাইপ করুন</p>
+<div class="otp-inputs" id="otpInputs">
+<input type="tel" maxlength="1" inputmode="numeric"><input type="tel" maxlength="1" inputmode="numeric">
+<input type="tel" maxlength="1" inputmode="numeric"><input type="tel" maxlength="1" inputmode="numeric">
+<input type="tel" maxlength="1" inputmode="numeric"><input type="tel" maxlength="1" inputmode="numeric">
+</div>
+<button class="pbtn" id="verifyOtpBtn" style="margin-top:24px;max-width:300px">ভেরিফাই করুন</button>
+<div class="otp-resend" id="otpResend">কোড পুনরায় পাঠান <button id="resendBtn" disabled>(<span id="resendTimer">60</span>s)</button></div>
+</div>
+</section>
+
+<!-- মূল স্ক্রিন -->
+<section id="mainScr" class="scr" aria-label="মূল">
+<div class="topbar">
+<div class="info"><h3>Personal Call</h3></div>
+<div class="acts">
+<button class="tbtn" id="searchBtn" aria-label="খুঁজুন"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></button>
+<button class="tbtn" id="menuBtn" aria-label="মেনু"><svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></button>
+</div>
+</div>
+<div class="tabs">
+<button class="tab on" data-tab="chats">চ্যাট</button>
+<button class="tab" data-tab="calls">কল</button>
+<button class="tab" data-tab="groups">গ্রুপ</button>
+</div>
+<div id="tabChats" class="chats-c" style="flex:1;overflow-y:auto"></div>
+<div id="tabCalls" style="flex:1;overflow-y:auto;display:none;padding:20px;text-align:center;color:var(--wa-text2);font-size:14px"></div>
+<div id="tabGroups" style="flex:1;overflow-y:auto;display:none"></div>
+<button class="fab" id="newChatFab" aria-label="নতুন চ্যাট"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/><path d="M13 5h-2v4H7v2h4v4h2v-4h4V9h-4z"/></svg></button>
+</section>
+
+<!-- চ্যাট স্ক্রিন -->
+<section id="chatScr" class="scr from-l" aria-label="চ্যাট">
+<div class="topbar">
+<button class="back" id="chatBackBtn"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+<img class="av-sm" id="chatAv" src="" alt="">
+<div class="info"><h3 id="chatNameH">-</h3><p id="chatStatusP">-</p></div>
+<div class="acts">
+<button class="tbtn" id="chatCallBtn" aria-label="অডিও কল"><svg viewBox="0 0 24 24"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg></button>
+<button class="tbtn" id="chatVidBtn" aria-label="ভিডিও কল"><svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg></button>
+</div>
+</div>
+<div class="msgs-c" id="msgsC"></div>
+<div class="chat-bar">
+<button class="embtn" aria-label="ইমোজি"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg></button>
+<div class="input-wrap">
+<textarea id="chatTa" placeholder="মেসেজ লিখুন..." rows="1"></textarea>
+<button class="sbtn" id="sendMsgBtn" disabled aria-label="পাঠাও"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+</div>
+</div>
+</section>
+
+<!-- সেটিংস স্ক্রিন -->
+<section id="setScr" class="scr from-l" aria-label="সেটিংস">
+<div class="topbar">
+<button class="back" id="setBackBtn"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+<div class="info"><h3>সেটিংস</h3></div>
+</div>
+<div class="set-list" id="setList"></div>
+</section>
+
+<!-- গ্রুপ তৈরি স্ক্রিন -->
+<section id="grpScr" class="scr from-l" aria-label="গ্রুপ তৈরি">
+<div class="topbar">
+<button class="back" id="grpBackBtn"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+<div class="info"><h3>নতুন গ্রুপ</h3></div>
+</div>
+<div class="grp-form" id="grpForm">
+<input type="text" id="grpNameIn" placeholder="গ্রুপের নাম">
+<div style="font-size:13px;color:var(--wa-text2);margin-top:4px">সদস্য নির্বাচন করুন:</div>
+<div class="grp-members" id="grpMembers"></div>
+<button class="pbtn" id="createGrpBtn" style="margin-top:16px">গ্রুপ তৈরি করুন</button>
+</div>
+</section>
+
+<!-- কল স্ক্রিন -->
+<section id="callScr" class="scr slide-up" aria-label="কল">
+<div class="call-bg" id="callBg"></div>
+<div class="call-overlay"></div>
+<div class="ring-circles" id="ringCircles" style="display:none">
+<div class="rc"></div><div class="rc"></div><div class="rc"></div>
+</div>
+<div class="call-vid" id="callVid" style="display:none">
+<video id="remVid" autoplay playsinline style="width:100%;height:100%;object-fit:cover"></video>
+<div class="pip" id="pipWrap">
+<video id="locVid" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover"></video>
+</div>
+</div>
+<div class="call-info" id="callInfo">
+<img class="cav" id="callAv" src="" alt="">
+<h2 id="callNameH">-</h2>
+<div class="cst" id="callStDiv"><span id="callStTxt">কল করা হচ্ছে</span></div>
+<div class="ctimer" id="callTimer" style="display:none">00:00</div>
+</div>
+<div class="call-ctrls" id="callCtrls">
+<button class="ccb" id="muteBtn" aria-label="মিউট"><svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg><span class="cl">মিউট</span></button>
+<button class="ccb" id="camBtn" aria-label="ক্যামেরা"><svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg><span class="cl">ক্যামেরা</span></button>
+<button class="ccb" id="spkBtn" aria-label="স্পিকার"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg><span class="cl">স্পিকার</span></button>
+<button class="ccb end" id="endBtn" aria-label="কল শেষ"><svg viewBox="0 0 24 24"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.956.956 0 0 1-.29-.7c0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28a11.27 11.27 0 0 0-2.67-1.85.996.996 0 0 1-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/></svg></button>
+</div>
+</section>
+
+<!-- ইনকামিং কল পপআপ -->
+<div id="incPop" role="dialog" aria-label="ইনকামিং কল">
+<div class="inc-card">
+<div class="inc-handle"></div>
+<img class="inc-av" id="incAv" src="" alt="">
+<div class="inc-name" id="incName">-</div>
+<div class="inc-type" id="incType">ভিডিও কল</div>
+<div class="inc-btns">
+<button class="inc-b rej" id="rejBtn"><div class="cir"><svg viewBox="0 0 24 24"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.956.956 0 0 1-.29-.7c0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28a11.27 11.27 0 0 0-2.67-1.85.996.996 0 0 1-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/></svg></div><span>রিজেক্ট</span></button>
+<button class="inc-b acc" id="accBtn"><div class="cir"><svg viewBox="0 0 24 24" id="accIco"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg></div><span>একসেপ্ট</span></button>
+</div>
+</div>
+</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/zego-express-engine-webrtc@2.5.4006/dist/index.min.js"></script>
+<script>
+/* ================================================================
+   config.js — এখানে শুধু credentials বসাও
+   এই অংশটি আলাদা config.js ফাইলে রাখো
+   ================================================================ */
+const _C=(function(){
+const _f={apiKey:"",authDomain:"",projectId:"",storageBucket:"",messagingSenderId:"",appId:"};
+const _z={appId:0,appSign:""};
+return{
+get fb(){return{..._f}},
+get zg(){return{appId:_z.appId,appSign:_z.appSign}},
+get fbOk(){return!!(_f.apiKey&&_f.projectId)},
+get zgOk(){return _z.appId>0&&!!_z.appSign}
+};
+})();
+
+/* ================================================================
+   firebase.js — Firebase সব লজিক (আলাদা ফাইলে রাখো)
+   ================================================================ */
+const DB=(function(){
+let _a=null,_d=null,_ok=false;
+function init(){if(_ok)return true;if(!_C.fbOk)return false;try{firebase.initializeApp(_C.fb);_a=firebase.auth();_d=firebase.firestore();_d.enablePersistence({synchronizeTabs:true}).catch(()=>{});_ok=true;return true;}catch(e){return false;}}
+function av(id){return'https://picsum.photos/seed/'+id+'/200/200.jpg'}
+
+/* ফোন দিয়ে রেজিস্টার/লগইন */
+async function phoneSendOTP(phone){
+const prov=new firebase.auth.PhoneAuthProvider();
+const res=await prov.verifyPhoneNumber(phone,window.recaptchaVerifier);
+return res;
+}
+async function phoneVerify(vid,code){
+const cred=await firebase.auth.PhoneAuthProvider.credential(vid,code);
+const res=await _a.signInWithCredential(cred);
+const doc=await _d.collection('users').doc(res.user.uid).get();
+if(!doc.exists){
+const n='ব্যবহারকারী_'+res.user.uid.substr(0,4);
+await _d.collection('users').doc(res.user.uid).set({name:n,phone:res.user.phoneNumber,email:'',avatar:av(res.user.uid),online:true,lastSeen:firebase.firestore.FieldValue.serverTimestamp()});
+return{uid:res.user.uid,name:n,phone:res.user.phoneNumber,email:'',avatar:av(res.user.uid)};
+}
+return{uid:res.user.uid,...doc.data()};
+}
+
+/* ইমেইল রেজিস্টার */
+async function emailReg(name,email,pass){
+const c=await _a.createUserWithEmailAndPassword(email,pass);
+await c.user.updateProfile({displayName:name});
+await _d.collection('users').doc(c.user.uid).set({name,email,phone:'',avatar:av(c.user.uid),online:true,lastSeen:firebase.firestore.FieldValue.serverTimestamp()});
+return{uid:c.user.uid,name,email,phone:'',avatar:av(c.user.uid)};
+}
+
+/* ইমেইল লগইন */
+async function emailLogin(email,pass){
+const c=await _a.signInWithEmailAndPassword(email,pass);
+return await _gu(c.user);
+}
+
+/* গুগল লগইন */
+async function googleLogin(){
+const p=new firebase.auth.GoogleAuthProvider();
+p.addScope('profile');p.addScope('email');
+const r=await _a.signInWithPopup(p);
+const doc=await _d.collection('users').doc(r.user.uid).get();
+if(!doc.exists){
+const a=r.user.photoURL||av(r.user.uid);
+await _d.collection('users').doc(r.user.uid).set({name:r.user.displayName||'ব্যবহারকারী',email:r.user.email||'',phone:r.user.phoneNumber||'',avatar:a,online:true,lastSeen:firebase.firestore.FieldValue.serverTimestamp()});
+return{uid:r.user.uid,name:r.user.displayName||'ব্যবহারকারী',email:r.user.email||'',phone:r.user.phoneNumber||'',avatar:a};
+}
+return await _gu(r.user);
+}
+
+/* প্রোফাইল আপডেট (প্রথম লগইনে নাম/ইমেইল সেট) */
+async function updateProfile(uid,data){
+if(!_d||!uid)return;
+await _d.collection('users').doc(uid).set(data,{merge:true});
+}
+
+/* লগআউট */
+async function logout(uid){
+if(uid&&_d)try{await _d.collection('users').doc(uid).update({online:false,lastSeen:firebase.firestore.FieldValue.serverTimestamp()})}catch(e){}
+if(_a)await _a.signOut();
+}
+
+/* অনলাইন স্ট্যাটাস */
+function setOn(uid){if(_d&&uid)_d.collection('users').doc(uid).update({online:true,lastSeen:firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>{})}
+function setOff(uid){if(_d&&uid)_d.collection('users').doc(uid).update({online:false,lastSeen:firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>{})}
+
+/* ইউজার লিসেনার */
+function onUsers(uid,cb){return _d.collection('users').where(firebase.firestore.FieldPath.documentId(),'!=',uid).onSnapshot(s=>{cb(s.docs.map(d=>({id:d.id,...d.data()})))},()=>{})}
+
+/* চ্যাট আইডি (সর্ট করে) */
+function chatId(a,b){return[a,b].sort().join('_')}
+
+/* মেসেজ */
+async function sendMsg(cid,m){if(!_d)return;await _d.collection('chats').doc(cid).collection('messages').add(m);await _d.collection('chats').doc(cid).set({lastMsg:{text:m.text,sid:m.senderId,ts:m.timestamp},parts:cid.split('_'),updated:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})}
+function onMsgs(cid,cb){return _d.collection('chats').doc(cid).collection('messages').orderBy('timestamp','asc').onSnapshot(s=>{cb(s.docChanges().map(c=>({t:c.type,d:{...c.doc.data(),_id:c.doc.id}})))},()=>{})}
+
+/* টাইপিং */
+function setTyping(cid,uid){if(_d)_d.collection('chats').doc(cid).collection('typing').doc(uid).set({ts:firebase.firestore.FieldValue.serverTimestamp()})}
+function clearTyping(cid,uid){if(_d)_d.collection('chats').doc(cid).collection('typing').doc(uid).delete().catch(()=>{})}
+function onTyping(cid,muid,cb){if(!_d)return()=>{};return _d.collection('chats').doc(cid).collection('typing').onSnapshot(s=>{let t=false;s.docs.forEach(d=>{if(d.id!==muid)t=true});cb(t)},()=>{})}
+
+/* কল সিগন্যালিং */
+async function mkCall(d){if(!_d)return null;const id='cl_'+Date.now()+'_'+Math.random().toString(36).substr(2,8);d.status='ringing';d.ts=firebase.firestore.FieldValue.serverTimestamp();d.roomId='rm_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);await _d.collection('calls').doc(id).set(d);return id}
+function onIncCall(uid,cb){return _d.collection('calls').where('calleeId','==',uid).where('status','==','ringing').onSnapshot(s=>{s.docChanges().forEach(c=>{if(c.type==='added')cb({id:c.doc.id,...c.doc.data()})})},()=>{})}
+function onCallUpd(cid,cb){if(!_d)return()=>{};return _d.collection('calls').doc(cid).onSnapshot(d=>{if(d.exists)cb(d.data())},()=>{})}
+async function updCall(cid,st){if(_d&&cid)try{await _d.collection('calls').doc(cid).update({status:st})}catch(e){}}
+
+/* গ্রুপ */
+async function mkGroup(name,parts){
+if(!_d)return null;
+const id='grp_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
+const data={name,creator:parts[0],members:parts,avatar:av(id),createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+await _d.collection('groups').doc(id).set(data);
+return{id,...data};
+}
+function onGroups(uid,cb){
+return _d.collection('groups').where('members','array-contains',uid).onSnapshot(s=>{cb(s.docs.map(d=>({id:d.id,...d.data()})))},()=>{});
+}
+function groupChatId(gid){return'g_'+gid}
+
+/* অটো লগইন */
+function onAuth(cb){if(!_a)return;_a.onAuthStateChanged(async u=>{if(u)try{cb(await _gu(u))}catch(e){}})}
+
+async function _gu(u){const d=await _d.collection('users').doc(u.uid).get();if(d.exists)return{uid:u.uid,...d.data()};return{uid:u.uid,name:u.displayName||'ব্যবহারকারী',email:u.email||'',phone:u.phoneNumber||'',avatar:av(u.uid)}}
+
+return{init,phoneSendOTP,phoneVerify,emailReg,emailLogin,googleLogin,updateProfile,logout,setOn,setOff,onUsers,chatId,sendMsg,onMsgs,setTyping,clearTyping,onTyping,mkCall,onIncCall,onCallUpd,updCall,mkGroup,onGroups,groupChatId,onAuth,av,get auth(){return _a},get db(){return _d},get ok(){return _ok}};
+})();
+
+/* ================================================================
+   app.js — মূল অ্যাপ লজিক (আলাদা ফাইলে রাখো)
+   ================================================================ */
+(function(){
+'use strict';
+
+/* --- ডেমো ডেটা --- */
+const DU=[
+{id:'d1',name:'রাহুল ইসলাম',phone:'+8801711000001',online:true},
+{id:'d2',name:'ফাতেমা আক্তার',phone:'+8801710000002',online:true},
+{id:'d3',name:'সাকিব হাসান',phone:'+8801899000003',online:false,lastSeen:'৫ মিনিট আগে'},
+{id:'d4',name:'নুসরাত জাহান',phone:'+8801611000004',online:true},
+{id:'d5',name:'আরিফ রহমান',phone:'+8801555000005',online:false,lastSeen:'১ ঘন্টা আগে'},
+{id:'d6',name:'তানজিনা সুমি',phone:'+8801899000006',online:false,lastSeen:'৩০ মিনিট আগে'},
+{id:'d7',name:'মেহেদী হাসান',phone:'+8801710000007',online:true},
+{id:'d8',name:'সাদিয়া ইসলাম',phone:'+8801611000008',online:false,lastSeen:'২ ঘন্টা আগে'},
+{id:'d9',name:'তাসনিম আহমেদ',phone:'+8801555000009',online:true},
+{id:'d10',name:'ইমরান খান',phone:'+8801899000010',online:false,lastSeen:'১৫ মিনিট আগে'}
+];
+const DC={'d1':[{sid:'d1',text:'হ্যালো, কেমন আছো?',ts:Date.now()-3600000},{sid:'demo_user',text:'ভালো আছি, তুমি?',ts:Date.now()-3500000},{sid:'d1',text:'আমিও ভালো। কাল দেখা হবে?',ts:Date.now()-3400000}],
+'d2':[{sid:'d2',text:'প্রজেক্টের কাজ কেমন চলছে?',ts:Date.now()-7200000},{sid:'demo_user',text:'ভালোই যাচ্ছে',ts:Date.now()-7100000}],
+'d4':[{sid:'demo_user',text:'এইতো কই ছিলে?',ts:Date.now()-1800000},{sid:'d4',text:'কাজে ব্যস্ত ছিলাম',ts:Date.now()-1700000},{sid:'d4',text:'কল করবো?',ts:Date.now()-1600000}]};
+
+/* --- স্টেট --- */
+const S={demo:false,user:null,users:[],chats:{},groups:[],
+chatTarget:null,chatUnsub:null,typingUnsub:null,typingTimeout:null,
+callActive:false,callType:'video',callPhase:'idle',callTarget:null,callDocId:null,
+isMuted:false,isCamOff:false,isSpk:false,
+callStart:null,callTimerIv:null,
+unsubUsers:null,unsubCalls:null,unsubGroups:null,
+zego:null,zegoOk:false,localStream:null,
+ringCtx:null,ringIv:null,
+resendTimer:null,resendSec:60,verificationId:null,phoneNum:'',
+isEmailReg:false};
+
+/* --- DOM --- */
+const q=s=>document.querySelector(s);
+const qa=s=>document.querySelectorAll(s);
+const D={toast:q('#toast'),secOv:q('#secOverlay'),
+phoneScr:q('#phoneScr'),emailScr:q('#emailScr'),otpScr:q('#otpScr'),
+mainScr:q('#mainScr'),chatScr:q('#chatScr'),setScr:q('#setScr'),grpScr:q('#grpScr'),
+callScr:q('#callScr'),incPop:q('#incPop'),
+phoneIn:q('#phoneIn'),sendOtpBtn:q('#sendOtpBtn'),googleLoginBtn:q('#googleLoginBtn'),showEmailLogin:q('#showEmailLogin'),
+emailBack:q('#emailBack'),emailNameGrp:q('#emailNameGrp'),emailNameIn:q('#emailNameIn'),
+emailAddrIn:q('#emailAddrIn'),emailPassIn:q('#emailPassIn'),emailSubmitBtn:q('#emailSubmitBtn'),toggleEmailReg:q('#toggleEmailReg'),
+otpBack:q('#otpBack'),otpPhone:q('#otpPhone'),otpMsg:q('#otpMsg'),otpInputs:q('#otpInputs'),
+verifyOtpBtn:q('#verifyOtpBtn'),resendBtn:q('#resendBtn'),resendTimer:q('#resendTimer'),otpResend:q('#otpResend'),
+tabChats:q('#tabChats'),tabCalls:q('#tabCalls'),tabGroups:q('#tabGroups'),
+chatAv:q('#chatAv'),chatNameH:q('#chatNameH'),chatStatusP:q('#chatStatusP'),
+chatBackBtn:q('#chatBackBtn'),chatCallBtn:q('#chatCallBtn'),chatVidBtn:q('#chatVidBtn'),
+msgsC:q('#msgsC'),chatTa:q('#chatTa'),sendMsgBtn:q('#sendMsgBtn'),
+setBackBtn:q('#setBackBtn'),setList:q('#setList'),
+grpBackBtn:q('#grpBackBtn'),grpNameIn:q('#grpNameIn'),grpMembers:q('#grpMembers'),createGrpBtn:q('#createGrpBtn'),
+callBg:q('#callBg'),callVid:q('#callVid'),remVid:q('#remVid'),locVid:q('#locVid'),pipWrap:q('#pipWrap'),
+callInfo:q('#callInfo'),callAv:q('#callAv'),callNameH:q('#callNameH'),callStDiv:q('#callStDiv'),callStTxt:q('#callStTxt'),callTimer:q('#callTimer'),ringCircles:q('#ringCircles'),
+muteBtn:q('#muteBtn'),camBtn:q('#camBtn'),spkBtn:q('#spkBtn'),endBtn:q('#endBtn'),
+incAv:q('#incAv'),incName:q('#incName'),incType:q('#incType'),accBtn:q('#accBtn'),accIco:q('#accIco'),rejBtn:q('#rejBtn'),
+searchBtn:q('#searchBtn'),menuBtn:q('#menuBtn'),newChatFab:q('#newChatFab')};
+
+/* --- ইউটিলিটি --- */
+function toast(m,t=''){D.toast.textContent=m;D.toast.className='show'+(t?' '+t:'');clearTimeout(D.toast._t);D.toast._t=setTimeout(()=>D.toast.className='',3000)}
+function go(from,to,cls=''){from.classList.remove('on');to.classList.remove('from-l','slide-up');if(cls)to.classList.add(cls);requestAnimationFrame(()=>to.classList.add('on'))}
+function back(from,to){from.classList.remove('on');to.classList.remove('from-l','slide-up');to.classList.add('from-l');requestAnimationFrame(()=>to.classList.add('on'))}
+function fmtTime(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function fmtDate(ts){const d=new Date(ts);const today=new Date();if(d.toDateString()===today.toDateString())return'আজ';const y=new Date(today);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'গতকাল';return d.toLocaleDateString('bn-BD',{day:'numeric',month:'short',year:'numeric'})}
+function fmtTimeShort(ts){return new Date(ts).toLocaleTimeString('bn-BD',{hour:'2-digit',minute:'2-digit',hour12:true})}
+function getUserLabel(u){return u.name+(u.phone?' • '+u.phone:'')+(u.email&&!u.phone?' • '+u.email:'')}
+
+/* --- সিকিউরিটি --- */
+function enableSec(){
+D.secOv.classList.add('on');
+document.addEventListener('keydown',e=>{if(e.key==='PrintScreen'){e.preventDefault();toast('স্ক্রিনশট নেওয়া নিষিদ্ধ','err')}if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();toast('সেভ করা নিষিদ্ধ','err')}if((e.ctrlKey||e.metaKey)&&e.shiftKey&&(e.key==='I'||e.key==='i'||e.key==='J'||e.key==='j'||e.key==='C'||e.key==='c')){e.preventDefault()}if(e.key==='F12'){e.preventDefault()}if((e.ctrlKey||e.metaKey)&&e.key==='u'){e.preventDefault();toast('সোর্স কোড দেখা নিষিদ্ধ','err')}});
+document.addEventListener('contextmenu',e=>{e.preventDefault();toast('রাইট ক্লিক নিষিদ্ধ','err')});
+document.addEventListener('copy',e=>{e.preventDefault();toast('কপি করা নিষিদ্ধ','err')});
+document.addEventListener('cut',e=>{e.preventDefault()});
+document.addEventListener('selectstart',e=>{if(!e.target.closest('input,textarea'))e.preventDefault()});
+}
+function disableSec(){D.secOv.classList.remove('on')}
+
+/* --- সাউন্ড --- */
+function playRing(){stopRing();try{const c=S.ringCtx=new(window.AudioContext||window.webkitAudioContext)();let i=0;function p(){if(!S.ringCtx)return;const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.value=[523,659][i++%2];g.gain.setValueAtTime(.06,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.5);o.start(c.currentTime);o.stop(c.currentTime+.5)}p();S.ringIv=setInterval(p,1100)}catch(e){}}
+function stopRing(){if(S.ringIv){clearInterval(S.ringIv);S.ringIv=null}if(S.ringCtx){try{S.ringCtx.close()}catch(e){}S.ringCtx=null}}
+function playTone(f1,f2,dur){try{const c=new(window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.setValueAtTime(f1,c.currentTime);o.frequency.linearRampToValueAtTime(f2,c.currentTime+dur*.6);g.gain.setValueAtTime(.05,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+dur);o.start(c.currentTime);o.stop(c.currentTime+dur)}catch(e){}}
+function playConnect(){playTone(880,1200,.25)}
+function playDisconnect(){playTone(600,300,.25)}
+
+/* --- OTP ইনপুট --- */
+const otpInputs=qa('#otpInputs input');
+otpInputs.forEach((inp,i)=>{
+inp.addEventListener('input',()=>{if(inp.value&&i<5)otpInputs[i+1].focus()});
+inp.addEventListener('keydown',e=>{if(e.key==='Backspace'&&!inp.value&&i>0){otpInputs[i-1].focus();otpInputs[i-1].value=''}});
+});
+function getOTP(){return Array.from(otpInputs).map(i=>i.value).join('')}
+function clearOTP(){otpInputs.forEach(i=>i.value='');otpInputs[0].focus()}
+function startResendTimer(){S.resendSec=60;D.resendBtn.disabled=true;D.resendTimer.textContent='60';clearInterval(S.resendTimer);S.resendTimer=setInterval(()=>{S.resendSec--;D.resendTimer.textContent=S.resendSec;if(S.resendSec<=0){clearInterval(S.resendTimer);D.resendBtn.disabled=false;D.resendTimer.textContent=''}},1000)}
+
+/* --- লগইন ফ্লো --- */
+// ফোন OTP
+D.sendOtpBtn.addEventListener('click',async()=>{
+const phone=D.phoneIn.value.trim();
+if(!phone||phone.length<7){toast('সঠিক ফোন নম্বর দিন','err');return}
+if(S.demo){S.phoneNum=phone;S.verificationId='demo_vid_'+Date.now();D.otpPhone.textContent=phone;clearOTP();go(D.phoneScr,D.otpScr);startResendTimer();return}
+if(!DB.ok){toast('Firebase কনফিগারেশন দেওয়া হয়নি','err');return}
+D.sendOtpBtn.disabled=true;D.sendOtpBtn.innerHTML='<span class="sp"></span>';
+try{
+if(!window.recaptchaVerifier){
+window.recaptchaVerifier=new firebase.auth.RecaptchaVerifier('sendOtpBtn',{size:'invisible',callback:()=>{}});
+}
+const vid=await DB.phoneSendOTP(phone);
+S.verificationId=vid;S.phoneNum=phone;
+D.otpPhone.textContent=phone;clearOTP();
+go(D.phoneScr,D.otpScr);startResendTimer();
+}catch(e){
+let msg='OTP পাঠাতে সমস্যা';
+if(e.code==='auth/invalid-phone-number')msg='ভুল ফোন নম্বর ফরম্যাট';
+toast(msg,'err');
+}
+D.sendOtpBtn.disabled=false;D.sendOtpBtn.textContent='ভেরিফিকেশন কোড পাঠান';
+});
+
+D.verifyOtpBtn.addEventListener('click',async()=>{
+const code=getOTP();
+if(code.length!==6){toast('৬ সংখ্যার কোড দিন','err');return}
+if(S.demo){
+S.user={uid:'demo_user',name:'ডেমো ইউজার',phone:S.phoneNum,email:'',avatar:DB.av('demo_user')};
+S.demo=true;toast('ডেমো মোডে প্রবেশ করেছেন','ok');enterMain();return;
+}
+D.verifyOtpBtn.disabled=true;D.verifyOtpBtn.innerHTML='<span class="sp"></span>';
+try{
+S.user=await DB.phoneVerify(S.verificationId,code);
+toast('সফলভাবে লগইন হয়েছে','ok');enterMain();
+}catch(e){
+let msg='ভেরিফিকেশন ব্যর্থ';
+if(e.code==='auth/invalid-verification-code')msg='ভুল ভেরিফিকেশন কোড';
+toast(msg,'err');
+}
+D.verifyOtpBtn.disabled=false;D.verifyOtpBtn.textContent='ভেরিফাই করুন';
+});
+
+D.resendBtn.addEventListener('click',async()=>{
+if(S.demo){startResendTimer();toast('কোড পুনরায় পাঠানো হয়েছে','ok');return}
+try{S.verificationId=await DB.phoneSendOTP(S.phoneNum);startResendTimer();toast('কোড পুনরায় পাঠানো হয়েছে','ok')}catch(e){toast('আবার পাঠাতে সমস্যা','err')}
+});
+
+D.otpBack.addEventListener('click',()=>back(D.otpScr,D.phoneScr));
+
+// ইমেইল
+D.showEmailLogin.addEventListener('click',()=>go(D.phoneScr,D.emailScr,'from-l'));
+D.emailBack.addEventListener('click',()=>back(D.emailScr,D.phoneScr));
+D.toggleEmailReg.addEventListener('click',()=>{S.isEmailReg=!S.isEmailReg;D.emailNameGrp.style.display=S.isEmailReg?'block':'none';D.emailSubmitBtn.textContent=S.isEmailReg?'অ্যাকাউন্ট তৈরি করুন':'সাইন ইন করুন';D.toggleEmailReg.textContent=S.isEmailReg?'ইতিমধ্যে অ্যাকাউন্ট আছে? সাইন ইন':'নতুন অ্যাকাউন্ট তৈরি করুন'});
+
+D.emailSubmitBtn.addEventListener('click',async()=>{
+const name=D.emailNameIn.value.trim(),email=D.emailAddrIn.value.trim(),pass=D.emailPassIn.value;
+if(!email||!pass){toast('ইমেইল ও পাসওয়ার্ড দিন','err');return}
+if(pass.length<6){toast('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে','err');return}
+if(S.isEmailReg&&!name){toast('নাম দিন','err');return}
+if(S.demo){
+S.user={uid:'demo_user',name:name||'ডেমো ইউজার',phone:'',email,avatar:DB.av('demo_user')};
+S.demo=true;toast('ডেমো মোড','ok');enterMain();return;
+}
+if(!DB.ok){toast('Firebase কনফিগারেশন দেওয়া হয়নি','err');return}
+D.emailSubmitBtn.disabled=true;D.emailSubmitBtn.innerHTML='<span class="sp"></span>';
+try{
+if(S.isEmailReg){S.user=await DB.emailReg(name,email,pass)}else{S.user=await DB.emailLogin(email,pass)}
+toast('সফল','ok');enterMain();
+}catch(e){
+let msg='ব্যর্থ হয়েছে';
+if(e.code==='auth/user-not-found')msg='এই ইমেইলে কোনো অ্যাকাউন্ট নেই';
+else if(e.code==='auth/wrong-password')msg='পাসওয়ার্ড ভুল';
+else if(e.code==='auth/email-already-in-use')msg='এই ইমেইল আগে থেকেই ব্যবহৃত';
+toast(msg,'err');
+}
+D.emailSubmitBtn.disabled=false;D.emailSubmitBtn.textContent=S.isEmailReg?'অ্যাকাউন্ট তৈরি করুন':'সাইন ইন করুন';
+});
+
+// গুগল
+D.googleLoginBtn.addEventListener('click',async()=>{
+if(S.demo){S.user={uid:'demo_user',name:'গুগল ইউজার',phone:'',email:'demo@gmail.com',avatar:DB.av('demo_google')};S.demo=true;toast('ডেমো মোড','ok');enterMain();return}
+if(!DB.ok){toast('Firebase কনফিগারেশন দেওয়া হয়নি','err');return}
+D.googleLoginBtn.disabled=true;
+try{S.user=await DB.googleLogin();toast('সফল','ok');enterMain()}catch(e){if(e.code!=='auth/popup-closed-by-user')toast('গুগল লগইন ব্যর্থ','err')}
+D.googleLoginBtn.disabled=false;
+});
+
+/* --- মূল স্ক্রিনে প্রবেশ --- */
+async function enterMain(){
+if(!S.demo)DB.setOn(S.user.uid);
+go(D.phoneScr,D.mainScr);
+renderChatList();
+startCallListener();
+}
+
+/* --- ট্যাব --- */
+qa('.tab').forEach(t=>t.addEventListener('click',()=>{
+qa('.tab').forEach(x=>x.classList.remove('on'));t.classList.add('on');
+const tab=t.dataset.tab;
+D.tabChats.style.display=tab==='chats'?'':'none';
+D.tabCalls.style.display=tab==='calls'?'':'none';
+D.tabGroups.style.display=tab==='groups'?'':'none';
+if(tab==='groups')renderGroups();
+if(tab==='calls')renderCallHistory();
+D.newChatFab.style.display=tab==='chats'?'':'none';
+}));
+
+/* --- চ্যাট লিস্ট --- */
+function renderChatList(){
+S.users=DU.map(u=>({...u,avatar:DB.av(u.id)}));
+let html='';
+// ডেমো চ্যাট প্রথমে
+Object.keys(DC).forEach(uid=>{
+const u=S.users.find(x=>x.id===uid);if(!u)return;
+const msgs=DC[uid];const last=msgs[msgs.length-1];
+html+=`<div class="chat-row" data-uid="${uid}" data-type="dm">
+<img class="av" src="${u.avatar}" alt="" onerror="this.src='${DB.av(uid)}'">
+<div class="det"><h4>${esc(u.name)}</h4><p>${esc(last.text)}</p></div>
+<div class="meta"><span class="time">${fmtTimeShort(last.ts)}</span></div></div>`;
+});
+// বাকি ইউজার
+S.users.filter(u=>!DC[u.id]).forEach(u=>{
+html+=`<div class="chat-row" data-uid="${u.id}" data-type="dm">
+<img class="av" src="${u.avatar}" alt="" onerror="this.src='${DB.av(u.id)}'">
+<div class="det"><h4>${esc(u.name)}</h4><p>${u.online?'<span style="color:var(--wa-teal)">অনলাইন</span>':(u.lastSeen||'')}</p></div>
+<div class="meta"></div></div>`;
+});
+D.tabChats.innerHTML=html||'<div style="text-align:center;padding:60px 20px;color:var(--wa-text3)">কোনো চ্যাট নেই</div>';
+
+D.tabChats.querySelectorAll('.chat-row').forEach(r=>{r.addEventListener('click',()=>{
+const uid=r.dataset.uid;const u=S.users.find(x=>x.id===uid);if(u)openChat(u,'dm');
+})});
+}
+
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+/* --- চ্যাট ওপেন --- */
+function openChat(u,type){
+S.chatTarget={...u,chatType:type};
+D.chatAv.src=u.avatar||DB.av(u.id);
+D.chatNameH.textContent=u.name||u.phone||u.email||'চ্যাট';
+D.chatStatusP.textContent=u.online?'অনলাইন':(u.lastSeen||'অফলাইন');
+D.chatStatusP.className=u.online?'on':'';
+go(D.mainScr,D.chatScr,'from-l');
+renderMessages();
+if(!S.demo&&type==='dm'){
+const cid=DB.chatId(S.user.uid,u.id);
+S.chatUnsub=DB.onMsgs(cid,handleMsgChange);
+S.typingUnsub=DB.onTyping(cid,S.user.uid,showTyping);
+}
+}
+function closeChat(){
+if(S.chatUnsub){S.chatUnsub();S.chatUnsub=null}
+if(S.typingUnsub){S.typingUnsub();S.typingUnsub=null}
+clearTimeout(S.typingTimeout);
+D.typingInd?.classList.remove('show');
+back(D.chatScr,D.mainScr);
+}
+D.chatBackBtn.addEventListener('click',closeChat);
+
+/* --- মেসেজ রেন্ডার --- */
+function renderMessages(){
+const u=S.chatTarget;if(!u)return;
+let msgs=[];
+if(S.demo&&u.chatType==='dm')msgs=(DC[u.id]||[]).map(m=>({...m,_id:Math.random().toString(36).substr(2,6)}));
+D.msgsC.innerHTML='';
+let lastDate='';
+msgs.forEach(m=>{
+const dateStr=fmtDate(m.ts);
+if(dateStr!==lastDate){lastDate=dateStr;D.msgsC.innerHTML+=`<div class="date-sep"><span>${dateStr}</span></div>`}
+const isOut=m.senderId===S.user.uid||m.sid===S.user.uid;
+D.msgsC.innerHTML+=`<div class="msg ${isOut?'out':'in'}"><div class="bbl">${esc(m.text)}</div><div class="mt"><span>${fmtTimeShort(m.ts)}</span>${isOut?'<span class="tick">✓✓</span>':''}</div></div>`;
+});
+D.msgsC.scrollTop=D.msgsC.scrollHeight;
+}
+function handleMsgChange(changes){
+changes.forEach(c=>{
+if(c.t==='added'){
+const m=c.d;const isOut=m.senderId===S.user.uid;
+const dateStr=fmtDate(m.timestamp);
+const lastSep=D.msgsC.querySelector('.date-sep:last-of-type');
+if(!lastSep||lastSep.textContent!==dateStr){
+const sep=document.createElement('div');sep.className='date-sep';sep.innerHTML=`<span>${dateStr}</span>`;D.msgsC.appendChild(sep);
+}
+const div=document.createElement('div');div.className='msg '+(isOut?'out':'in');
+div.innerHTML=`<div class="bbl">${esc(m.text)}</div><div class="mt"><span>${fmtTimeShort(m.timestamp)}</span>${isOut?'<span class="tick">✓✓</span>':''}</div></div>`;
+D.msgsC.appendChild(div);
+D.msgsC.scrollTop=D.msgsC.scrollHeight;
+}
+});
+}
+
+/* --- টাইপিং --- */
+function showTyping(isTyping){
+if(!D.typingInd)return;
+if(isTyping){D.typingInd.classList.add('show');D.msgsC.scrollTop=D.msgsC.scrollHeight}
+else D.typingInd.classList.remove('show');
+}
+
+/* --- মেসেজ পাঠাও --- */
+D.chatTa.addEventListener('input',()=>{
+D.sendMsgBtn.disabled=!D.chatTa.value.trim();
+D.chatTa.style.height='auto';D.chatTa.style.height=Math.min(D.chatTa.scrollHeight,100)+'px';
+if(!S.demo&&S.chatTarget&&S.chatTarget.chatType==='dm'){
+DB.setTyping(DB.chatId(S.user.uid,S.chatTarget.id),S.user.uid);
+clearTimeout(S.typingTimeout);S.typingTimeout=setTimeout(()=>{DB.clearTyping(DB.chatId(S.user.uid,S.chatTarget.id),S.user.uid)},2000);
+}
+});
+D.sendMsgBtn.addEventListener('click',sendMsg);
+D.chatTa.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg()}});
+
+function sendMsg(){
+const text=D.chatTa.value.trim();if(!text||!S.chatTarget)return;
+const msg={senderId:S.user.uid,text,timestamp:Date.now()};
+if(S.demo&&S.chatTarget.chatType==='dm'){
+if(!DC[S.chatTarget.id])DC[S.chatTarget.id]=[];
+DC[S.chatTarget.id].push(msg);
+}else if(!S.demo&&S.chatTarget.chatType==='dm'){
+DB.sendMsg(DB.chatId(S.user.uid,S.chatTarget.id),msg);
+}
+D.chatTa.value='';D.chatTa.style.height='auto';D.sendMsgBtn.disabled=true;
+renderMessages();
+// ডেমো: অটো রিপ্লাই
+if(S.demo&&S.chatTarget.chatType==='dm'){
+setTimeout(()=>{
+const replies=['হ্যাঁ বুঝেছি','ঠিক আছে','আচ্ছা','কাল কথা হবে','ওকে','জ্বী ভাই','আমিও তাই ভাবছিলাম'];
+const r={senderId:S.chatTarget.id,text:replies[Math.floor(Math.random()*replies.length)],timestamp:Date.now()};
+if(!DC[S.chatTarget.id])DC[S.chatTarget.id]=[];
+DC[S.chatTarget.id].push(r);renderMessages();
+},1500+Math.random()*2000);
+}
+}
+
+/* --- গ্রুপ --- */
+function renderGroups(){
+if(S.demo){
+D.tabGroups.innerHTML=`<div style="text-align:center;padding:60px 20px;color:var(--wa-text3)"><p style="font-size:40px;margin-bottom:12px">👥</p><p>গ্রুপ তৈরি করতে নিচের + বাটনে ক্লিক করুন</p></div>`;
+return;
+}
+}
+D.newChatFab.addEventListener('click',()=>{
+if(S.demo||!DB.ok){
+// ডেমো তে গ্রুপ ফর্ম দেখাও
+D.grpMembers.innerHTML='';
+S.users.forEach(u=>{
+D.grpMembers.innerHTML+=`<div class="gm"><label><input type="checkbox" value="${u.id}"><img src="${u.avatar}" alt=""><span>${esc(u.name)}</span></label></div>`;
+});
+go(D.mainScr,D.grpScr,'from-l');
+}else{go(D.mainScr,D.grpScr,'from-l');loadGroupMembers()}
+});
+D.grpBackBtn.addEventListener('click',()=>back(D.grpScr,D.mainScr));
+D.createGrpBtn.addEventListener('click',async()=>{
+const name=D.grpNameIn.value.trim();if(!name){toast('গ্রুপের নাম দিন','err');return}
+const checked=D.grpMembers.querySelectorAll('input:checked');
+if(checked.length<1){toast('কমপক্ষে ১ জন সদস্য নির্বাচন করুন','err');return}
+const parts=[S.user.uid,...Array.from(checked).map(c=>c.value)];
+if(S.demo){
+toast('গ্রুপ "'+name+'" তৈরি হয়েছে','ok');
+back(D.grpScr,D.mainScr);return;
+}
+try{const g=await DB.mkGroup(name,parts);toast('গ্রুপ তৈরি হয়েছে','ok');back(D.grpScr,D.mainScr)}catch(e){toast('গ্রুপ তৈরি ব্যর্থ','err')}
+});
+function loadGroupMembers(){
+D.grpMembers.innerHTML='';
+S.users.forEach(u=>{
+D.grpMembers.innerHTML+=`<div class="gm"><label><input type="checkbox" value="${u.id}"><img src="${u.avatar}" alt=""><span>${esc(u.name)}</span><br><small style="color:var(--wa-text2)">${u.phone||''}</small></label></div>`;
+});
+}
+
+/* --- কল হিস্ট্রি --- */
+function renderCallHistory(){
+D.tabCalls.innerHTML='<div style="text-align:center;padding:60px 20px;color:var(--wa-text3)"><p style="font-size:40px;margin-bottom:12px">📞</p><p>কল হিস্টরি এখানে দেখাবে</p></div>';
+}
+
+/* --- কল সিস্টেম --- */
+function startCallListener(){
+if(S.demo)return;
+S.unsubCalls=DB.onIncCall(S.user.uid,showIncoming);
+}
+
+function initiateCall(u,type){
+S.callType=type;S.callTarget=u;S.callPhase='outgoing';
+S.isMuted=false;S.isCamOff=false;S.isSpk=false;
+D.callNameH.textContent=u.name||u.phone;
+D.callStTxt.textContent='কল করা হচ্ছে';D.callStDiv.style.display='';
+D.callTimer.style.display='none';
+D.callAv.src=u.avatar||DB.av(u.id);
+D.callBg.style.backgroundImage=`url(${u.avatar||DB.av(u.id)})`;
+if(type==='video'){D.callVid.style.display='';D.camBtn.style.display=''}
+else{D.callVid.style.display='none';D.camBtn.style.display='none'}
+D.ringCircles.style.display='';D.callInfo.style.display='';
+resetCallCtrls();go(D.mainScr,D.callScr,'slide-up');playRing();
+if(S.demo){setTimeout(()=>{if(S.callPhase==='outgoing')onConnected()},3000)}
+else{DB.mkCall({callerId:S.user.uid,callerName:S.user.name,callerAvatar:S.user.avatar,calleeId:u.id,calleeName:u.name,type,roomId:''}).then(cid=>{S.callDocId=cid;DB.onCallUpd(cid,data=>{if(data.status==='accepted')onAccepted(data);else if(data.status==='rejected'){toast(u.name+' রিজেক্ট করেছে','err');endCall()}else if(data.status==='ended')endCall()})}).catch(()=>{toast('কল পাঠাতে সমস্যা','err');endCall()})}
+}
+
+function showIncoming(cd){
+if(S.callActive){DB.updCall(cd.id,'rejected');return}
+S.callType=cd.type;S.callTarget={id:cd.callerId,name:cd.callerName,avatar:cd.callerAvatar};S.callDocId=cd.id;
+D.incAv.src=cd.callerAvatar||DB.av(cd.callerId);D.incName.textContent=cd.callerName;
+D.incType.textContent=cd.type==='video'?'ভিডিও কল':'অডিও কল';
+D.accIco.innerHTML=cd.type==='video'?'<path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>':'<path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>';
+D.incPop.classList.add('on');playRing();
+}
+
+D.accBtn.addEventListener('click',async()=>{
+D.incPop.classList.remove('on');stopRing();
+S.callPhase='connecting';
+D.callNameH.textContent=S.callTarget.name;D.callStTxt.textContent='কানেক্ট হচ্ছে...';
+D.callAv.src=S.callTarget.avatar||DB.av(S.callTarget.id);
+D.callBg.style.backgroundImage=`url(${S.callTarget.avatar||DB.av(S.callTarget.id)})`;
+if(S.callType==='video'){D.callVid.style.display='';D.camBtn.style.display=''}else{D.callVid.style.display='none';D.camBtn.style.display='none'}
+resetCallCtrls();go(D.mainScr,D.callScr,'slide-up');
+if(!S.demo)DB.updCall(S.callDocId,'accepted');
+setTimeout(()=>{if(S.callPhase==='connecting')onConnected()},1000);
+});
+D.rejBtn.addEventListener('click',async()=>{
+D.incPop.classList.remove('on');stopRing();
+if(!S.demo)DB.updCall(S.callDocId,'rejected');
+S.callTarget=null;S.callDocId=null;S.callPhase='idle';
+});
+
+function onAccepted(data){stopRing();S.callPhase='connecting';D.callStTxt.textContent='কানেক্ট হচ্ছে...';setTimeout(()=>onConnected(),500)}
+function onConnected(){
+S.callActive=true;S.callPhase='connected';S.callStart=Date.now();
+stopRing();playConnect();
+D.ringCircles.style.display='none';
+D.callStDiv.style.display='none';D.callTimer.style.display='';
+S.callTimerIv=setInterval(()=>{D.callTimer.textContent=fmtTime(Math.floor((Date.now()-S.callStart)/1000))},1000);
+// জেগোক্লাউড জয়েন (রিয়েল মোডে)
+if(!S.demo&&_C.zgOk&&typeof ZegoExpressEngine!=='undefined'){
+try{
+if(!S.zego){S.zego=new ZegoExpressEngine(_C.zg.appId,0);S.zegoOk=true}
+S.zego.on('roomStreamUpdate',(rid,ut,sl)=>{if(ut==='ADD'&&sl.length){sl.forEach(s=>{S.zego.startPlayingStream(s.streamID).then(rs=>{D.remVid.srcObject=rs}).catch(()=>{})})}else if(ut==='DELETE'){D.remVid.srcObject=null}});
+S.zego.on('roomUserUpdate',(rid,ut,ul)=>{if(ut==='LEAVE'&&S.callPhase==='connected'){toast('সামনের জন কল ছেড়েছে');endCall()}});
+S.zego.loginRoom(S.callDocId,{userID:S.user.uid,userName:S.user.name});
+const sid='loc_'+S.user.uid;
+S.localStream=await S.zego.createStream({camera:{video:S.callType==='video',audio:true,videoQuality:2,fps:30},audio:{mic:true,echoCancellation:true,noiseSuppression:true}});
+if(S.callType==='video')D.locVid.srcObject=S.localStream;
+S.zego.startPublishingStream(sid,S.localStream);
+}catch(e){console.error('ZEGO:',e)}
+}
+}
+function endCall(silent){
+const was=S.callActive;S.callActive=false;S.callPhase='idle';
+if(S.callTimerIv){clearInterval(S.callTimerIv);S.callTimerIv=null}
+stopRing();if(!silent&&was)playDisconnect();
+if(S.zego&&S.localStream){try{S.zego.stopPublishingStream('loc_'+S.user.uid);S.zego.destroyStream(S.localStream);S.zego.logoutRoom()}catch(e){}S.localStream=null}
+D.remVid.srcObject=null;D.locVid.srcObject=null;
+if(!S.demo&&S.callDocId)DB.updCall(S.callDocId,'ended');
+S.callTarget=null;S.callDocId=null;S.callStart=null;
+D.callStDiv.style.display='';D.callTimer.style.display='none';
+D.callVid.style.display='none';
+if(D.callScr.classList.contains('on'))back(D.callScr,D.mainScr);
+D.incPop.classList.remove('on');
+}
+function resetCallCtrls(){
+D.muteBtn.classList.remove('off');D.muteBtn.querySelector('svg').innerHTML='<path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>';
+D.camBtn.classList.remove('off');D.camBtn.querySelector('svg').innerHTML='<path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>';
+D.spkBtn.classList.remove('off');
+}
+
+D.muteBtn.addEventListener('click',()=>{
+S.isMuted=!S.isMuted;
+if(S.isMuted){D.muteBtn.classList.add('off');D.muteBtn.querySelector('svg').innerHTML='<path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.33 3 2.99 3 .22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52-2.76 0-5.3-2.1-5.3-5.1H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73 4.27 3z"/>';
+if(S.localStream)S.localStream.getAudioTracks().forEach(t=>t.enabled=false);
+}else{D.muteBtn.classList.remove('off');D.muteBtn.querySelector('svg').innerHTML='<path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>';
+if(S.localStream)S.localStream.getAudioTracks().forEach(t=>t.enabled=true);
+}
+});
+D.camBtn.addEventListener('click',()=>{
+if(S.callType!=='video')return;
+S.isCamOff=!S.isCamOff;
+if(S.isCamOff){D.camBtn.classList.add('off');D.camBtn.querySelector('svg').innerHTML='<path d="M18 10.48V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4.48l4 3.98v-11l-4 3.98zm-2-.79V18H4V6h12v3.69z"/>';
+if(S.localStream)S.localStream.getVideoTracks().forEach(t=>t.enabled=false);
+}else{D.camBtn.classList.remove('off');D.camBtn.querySelector('svg').innerHTML='<path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>';
+if(S.localStream)S.localStream.getVideoTracks().forEach(t=>t.enabled=true);
+}
+});
+D.spkBtn.addEventListener('click',()=>{S.isSpk=!S.isSpk;D.spkBtn.classList.toggle('off',S.isSpk)});
+D.endBtn.addEventListener('click',()=>endCall());
+
+/* --- চ্যাট থেকে কল --- */
+D.chatCallBtn.addEventListener('click',()=>{if(S.chatTarget)closeChat(()=>initiateCall(S.chatTarget,'audio'));else if(S.chatTarget)initiateCall(S.chatTarget,'audio')});
+D.chatVidBtn.addEventListener('click',()=>{if(S.chatTarget)closeChat(()=>initiateCall(S.chatTarget,'video'));else if(S.chatTarget)initiateCall(S.chatTarget,'video')});
+// ফিক্স: চ্যাট থেকে কলে যাওয়ার সময় আগে চ্যাট বন্ধ করো
+D.chatCallBtn.addEventListener('click',()=>{const u=S.chatTarget;if(!u)return;if(S.chatUnsub){S.chatUnsub();S.chatUnsub=null}if(S.typingUnsub){S.typingUnsub();S.typingUnsub=null}D.chatScr.classList.remove('on');D.mainScr.classList.remove('from-l');requestAnimationFrame(()=>{D.mainScr.classList.add('on');setTimeout(()=>initiateCall(u,'audio'),100)})});
+D.chatVidBtn.addEventListener('click',()=>{const u=S.chatTarget;if(!u)return;if(S.chatUnsub){S.chatUnsub();S.chatUnsub=null}if(S.typingUnsub){S.typingUnsub();S.typingUnsub=null}D.chatScr.classList.remove('on');D.mainScr.classList.remove('from-l');requestAnimationFrame(()=>{D.mainScr.classList.add('on');setTimeout(()=>initiateCall(u,'video'),100)})});
+
+/* --- সেটিংস --- */
+D.menuBtn.addEventListener('click',()=>{renderSettings();go(D.mainScr,D.setScr,'from-l')});
+D.setBackBtn.addEventListener('click',()=>back(D.setScr,D.mainScr));
+
+function renderSettings(){
+const u=S.user;if(!u)return;
+D.setList.innerHTML=`
+<div class="set-item" style="padding:20px;gap:16px">
+<img src="${u.avatar||DB.av(u.uid)}" style="width:64px;height:64px;border-radius:50%;object-fit:cover">
+<div class="si-text"><h4 style="font-size:18px">${esc(u.name)}</h4><p>${u.phone||''} ${u.phone&&u.email?'• ':''}${u.email||''}</p></div>
+</div>
+<div class="set-divider"></div>
+<div class="set-header">সিকিউরিটি</div>
+<div class="set-item" id="setScreenshot"><div class="si-icon" style="background:#ea0038"><svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" fill="#fff"/></svg></div><div class="si-text"><h4>স্ক্রিনশট ব্লক</h4><p>স্ক্রিনশট নেওয়া থেকে রোধ করুন</p></div><div class="toggle on" id="ssToggle"></div></div>
+<div class="set-item" id="setScreenRec"><div class="si-icon" style="background:#c80030"><svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" fill="#fff"/></svg></div><div class="si-text"><h4>স্ক্রিন রেকর্ড ব্লক</h4><p>স্ক্রিন রেকর্ড করা থেকে রোধ করুন</p></div><div class="toggle on" id="srToggle"></div></div>
+<div class="set-item" id="setCopyBlock"><div class="si-icon" style="background:#b71c1c"><svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="#fff"/></svg></div><div class="si-text"><h4>কপি/পেস্ট ব্লক</h4><p>টেক্সট কপি করা থেকে রোধ করুন</p></div><div class="toggle on" id="cpToggle"></div></div>
+<div class="set-item" id="setDevTools"><div class="si-icon" style="background:#880e4f"><svg viewBox="0 0 24 24"><path d="M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C12.96 5.06 12.49 5 12 5c-.49 0-.96.06-1.41.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z" fill="#fff"/></svg></div><div class="si-text"><h4>ডেভেলপার টুলস ব্লক</h4><p>Inspect Element ও সোর্স কোড ব্লক</p></div><div class="toggle on" id="dtToggle"></div></div>
+<div class="set-divider"></div>
+<div class="set-header">অ্যাকাউন্ট</div>
+<div class="set-item" id="setLogout"><div class="si-icon" style="background:var(--wa-text3)"><svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" fill="#fff"/></svg></div><div class="si-text"><h4 style="color:var(--wa-danger)">লগআউট</h4></div></div>
+`;
+// টগল ইভেন্ট
+q('#ssToggle')?.addEventListener('click',function(){this.classList.toggle('on')});
+q('#srToggle')?.addEventListener('click',function(){this.classList.toggle('on')});
+q('#cpToggle')?.addEventListener('click',function(){this.classList.toggle('on')});
+q('#dtToggle')?.addEventListener('click',function(){this.classList.toggle('on')});
+q('#setLogout')?.addEventListener('click',handleLogout);
+}
+
+/* --- লগআউট --- */
+async function handleLogout(){
+stopRing();endCall(true);
+if(S.unsubUsers){S.unsubUsers();S.unsubUsers=null}
+if(S.unsubCalls){S.unsubCalls();S.unsubCalls=null}
+if(!S.demo)await DB.logout(S.user.uid);
+S.user=null;S.demo=false;disableSec();
+D.phoneIn.value='';D.emailAddrIn.value='';D.emailPassIn.value='';D.emailNameIn.value='';
+back(D.setScr,D.phoneScr);
+}
+
+/* --- ব্যাক বাটন --- */
+window.addEventListener('popstate',e=>{
+if(S.callActive){e.preventDefault();endCall();history.pushState(null,'',location.href)}
+});
+history.pushState(null,'',location.href);
+
+/* --- ইনিট --- */
+async function init(){
+enableSec();
+if(DB.init()){
+DB.onAuth(u=>{if(u&&!S.user){S.user=u;enterMain()}});
+}
+// ডেমো: ইউজার লিসেনার সিমুলেশন
+if(!DB.ok){
+S.users=DU.map(u=>({...u,avatar:DB.av(u.id)}));
+}
+}
+init();
+})();
+</script>
+</div>
+</body>
+</html>
