@@ -1,25 +1,23 @@
 /* ================================================================
    config.js — শুধুমাত্র credentials
-   আপনার আসল Firebase ও ZEGO ক্রেডেনশিয়াল এখানে বসান
-   কিছু খালি রাখলে অ্যাপ কাজ করবে না — এটাই উদ্দেশ্য
+   আপনার আসল Firebase ও ZEGO ক্রেডেনশিয়াল
    ================================================================ */
 var _C = (function () {
+
+  /* --- Firebase কনফিগারেশন (Firebase Console থেকে নেওয়া) --- */
   var _f = {
-    apiKey: "আপনার-apiKey-এখানে",
-    authDomain: "আপনার-প্রজেক্ট.firebaseapp.com",
-    projectId: "আপনার-প্রজেক্ট-id",
-    storageBucket: "আপনার-প্রজেক্ট.appspot.com",
-    messagingSenderId: "আপনার-sender-id",
-    appId: "আপনার-app-id"
+    apiKey: "AIzaSyDVavo9JjW3HmmTU2U78w5w6FJPTiuIipo",
+    authDomain: "personal-call-659a4.firebaseapp.com",
+    databaseURL: "https://personal-call-659a4-default-rtdb.firebaseio.com",
+    projectId: "personal-call-659a4",
+    storageBucket: "personal-call-659a4.firebasestorage.app",
+    messagingSenderId: "855478489325",
+    appId: "1:855478489325:web:3df677bfc5cb5c2e5efce4",
+    measurementId: "G-K4CV4TGZJN"
   };
 
-  var _z = {
-    appId: 0,
-    appSign: "আপনার-ZEGO-appSign-এখানে"
-  };
-
-  return {
-    get fb() { return { apiKey: _f.apiKey, authDomain: _f.authDomain, projectId: _f.projectId, storageBucket: _f.storageBucket, messagingSenderId: _f.messagingSenderId, appId: _f.appId }; },
-    get zg() { return { appId: _z.appId, appSign: _z.appSign }; }
-  };
-})();
+  /* --- ZEGO কনফিগারেশন (ZEGO Console থেকে নেওয়া) ---
+     
+     AppID: আপনার স্ক্রিনশটে দেখাচ্ছে 2f202a411
+     
+     AppSign: এটা আপনার স্ক্রিনশটের "
