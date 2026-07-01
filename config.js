@@ -1,10 +1,4 @@
-/* ================================================================
-   config.js — শুধুমাত্র credentials
-   আপনার আসল Firebase ও ZEGO ক্রেডেনশিয়াল
-   ================================================================ */
 var _C = (function () {
-
-  /* --- Firebase কনফিগারেশন (Firebase Console থেকে নেওয়া) --- */
   var _f = {
     apiKey: "AIzaSyDVavo9JjW3HmmTU2U78w5w6FJPTiuIipo",
     authDomain: "personal-call-659a4.firebaseapp.com",
@@ -16,8 +10,34 @@ var _C = (function () {
     measurementId: "G-K4CV4TGZJN"
   };
 
-  /* --- ZEGO কনফিগারেশন (ZEGO Console থেকে নেওয়া) ---
-     
-     AppID: আপনার স্ক্রিনশটে দেখাচ্ছে 2f202a411
-     
-     AppSign: এটা আপনার স্ক্রিনশটের "
+  /* 
+    ZEGO কনফিগারেশন
+    AppID: আপনার স্ক্রিনশটে দেখাচ্ছে 2f202a411
+    কিন্তু এটা hex ফরম্যাটে আছে, ZEGO SDK তে ডেসিমাল লাগে
+    0x2f202a411 = 12614141649
+    
+    AppSign: ZEGO Console > আপনার প্রজেক্ট > 
+    Basic Configurations এর মধ্যে "AppSign" আছে
+    সেটা কপি করে নিচে বসান
+  */
+  var _z = {
+    appId: 0,
+    appSign: ""
+  };
+
+  return {
+    get fb() {
+      return {
+        apiKey: _f.apiKey,
+        authDomain: _f.authDomain,
+        databaseURL: _f.databaseURL,
+        projectId: _f.projectId,
+        storageBucket: _f.storageBucket,
+        messagingSenderId: _f.messagingSenderId,
+        appId: _f.appId,
+        measurementId: _f.measurementId
+      };
+    },
+    get zg() { return { appId: _z.appId, appSign: _z.appSign }; }
+  };
+})();
