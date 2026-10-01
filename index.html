@@ -38,7 +38,6 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .topbar .info p{font-size:12px;color:var(--wa-text2);line-height:1.3}
 .topbar .acts{display:flex;gap:4px;flex-shrink:0}
 .tbtn{width:40px;height:40px;border:none;background:none;color:var(--wa-text2);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:50%}
-.tbtn:hover{background:rgba(255,255,255,.05)}
 .tbtn svg{width:22px;height:22px;fill:var(--wa-text2)}
 .av-sm{width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--wa-panel)}
 
@@ -58,17 +57,12 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .pbtn{width:100%;padding:13px;border:none;border-radius:var(--radius);background:var(--wa-teal);color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s;margin-top:8px}
 .pbtn:hover{background:var(--wa-teal-dark)}
 .pbtn:disabled{opacity:.5;cursor:not-allowed}
-.pbtn.gbtn{background:transparent;border:1px solid var(--wa-border);color:var(--wa-text);font-weight:400;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:10px}
-.pbtn.gbtn svg{width:20px;height:20px}
 .lnk{background:none;border:none;color:var(--wa-teal);font-size:13px;cursor:pointer;margin-top:16px;display:inline-block}
 .lnk:hover{text-decoration:underline}
-.divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--wa-text3);font-size:12px}
-.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--wa-border)}
 
-/* ★ WhatsApp-স্টাইল কান্ট্রি কোড সেকশন ★ */
+/* WhatsApp-স্টাইল কান্ট্রি কোড */
 .phone-row{display:flex;gap:8px;margin-bottom:12px}
 .cc-btn{flex-shrink:0;background:var(--wa-panel);border:none;border-radius:var(--radius);color:var(--wa-text);padding:0 12px;font-size:14px;display:flex;align-items:center;gap:5px;cursor:pointer;min-height:46px}
-.cc-btn:focus{box-shadow:0 0 0 2px var(--wa-teal)}
 .cc-btn .caret{font-size:10px;color:var(--wa-text2)}
 .phone-row input{flex:1;min-width:0;padding:13px 16px;background:var(--wa-panel);border:none;border-radius:var(--radius);color:var(--wa-text);font-size:14px;outline:none}
 .phone-row input:focus{box-shadow:0 0 0 2px var(--wa-teal)}
@@ -83,13 +77,13 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .cc-search input{width:100%;padding:11px 14px;background:var(--wa-panel);border:none;border-radius:var(--radius);color:var(--wa-text);font-size:14px;outline:none}
 .cc-list{flex:1;overflow-y:auto;padding-bottom:20px}
 .cc-item{display:flex;align-items:center;gap:12px;padding:12px 20px;cursor:pointer}
-.cc-item:hover,.cc-item:active{background:rgba(255,255,255,.05)}
+.cc-item:active{background:rgba(255,255,255,.05)}
 .cc-item .fl{font-size:22px}
 .cc-item .nm{flex:1;font-size:14px}
 .cc-item .dl{font-size:13px;color:var(--wa-text2)}
 
 .otp-inputs{display:flex;gap:8px;justify-content:center;margin:20px 0}
-.otp-inputs input{width:48px;height:52px;text-align:center;font-size:22px;font-weight:600;background:var(--wa-panel);border:2px solid var(--wa-border);border-radius:var(--radius);color:var(--wa-text);outline:none;transition:border-color .2s}
+.otp-inputs input{width:48px;height:52px;text-align:center;font-size:22px;font-weight:600;background:var(--wa-panel);border:2px solid var(--wa-border);border-radius:var(--radius);color:var(--wa-text);outline:none}
 .otp-inputs input:focus{border-color:var(--wa-teal)}
 .otp-resend{font-size:12px;color:var(--wa-text2);margin-top:12px}
 .otp-resend button{background:none;border:none;color:var(--wa-teal);cursor:pointer;font-size:12px}
@@ -107,12 +101,11 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .chat-row:hover{background:rgba(255,255,255,.03)}
 .chat-row .av{width:50px;height:50px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--wa-panel)}
 .chat-row .det{flex:1;min-width:0;border-bottom:1px solid rgba(255,255,255,.04);padding-bottom:10px}
-.chat-row .det h4{font-size:15px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
+.chat-row .det h4{font-size:15px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chat-row .det p{font-size:13px;color:var(--wa-text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 .chat-row .meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
 .chat-row .meta .time{font-size:11px;color:var(--wa-text2)}
 .mini-act{width:38px;height:38px;border:none;background:none;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.mini-act:hover{background:rgba(255,255,255,.05)}
 .mini-act svg{width:20px;height:20px;fill:var(--wa-teal)}
 .mini-act.red svg{fill:var(--wa-danger)}
 
@@ -124,7 +117,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .msg.out{align-self:flex-end;align-items:flex-end}
 .msg.in{align-self:flex-start;align-items:flex-start}
 @keyframes mi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.bbl{padding:6px 8px 8px;border-radius:8px;position:relative;word-break:break-word;font-size:14px;line-height:1.45}
+.bbl{padding:6px 8px 8px;border-radius:8px;word-break:break-word;font-size:14px;line-height:1.45}
 .msg.out .bbl{background:var(--wa-bubble-out);border-top-right-radius:0}
 .msg.in .bbl{background:var(--wa-bubble-in);border-top-left-radius:0}
 .msg .mt{font-size:11px;color:var(--wa-text2);margin-top:2px;display:flex;align-items:center;gap:3px}
@@ -132,9 +125,8 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .chat-bar{display:flex;align-items:flex-end;padding:6px 10px;gap:6px;background:var(--wa-bar);flex-shrink:0}
 .chat-bar .input-wrap{flex:1;display:flex;align-items:flex-end;background:var(--wa-panel);border-radius:24px;padding:6px 14px;min-height:44px;gap:8px}
 .chat-bar textarea{flex:1;border:none;background:none;color:var(--wa-text);font-size:14px;outline:none;resize:none;max-height:100px;line-height:1.4;padding:4px 0;font-family:inherit}
-.chat-bar textarea::placeholder{color:var(--wa-text3)}
 .chat-bar .sbtn{width:42px;height:42px;border-radius:50%;border:none;background:var(--wa-teal);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
-.chat-bar .sbtn:disabled{opacity:.4;cursor:not-allowed}
+.chat-bar .sbtn:disabled{opacity:.4}
 .chat-bar .sbtn svg{width:20px;height:20px;fill:#fff}
 
 #callScr{background:#000;z-index:100}
@@ -151,7 +143,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .pip video{width:100%;height:100%;object-fit:cover}
 .pip.off::after{content:'ক্যামেরা বন্ধ';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--wa-panel);font-size:11px;color:var(--wa-text2)}
 .call-ctrls{position:relative;z-index:10;padding:30px 20px 50px;display:flex;align-items:center;justify-content:center;gap:20px;background:linear-gradient(to top,rgba(0,0,0,.8),transparent)}
-.ccb{width:56px;height:56px;border-radius:50%;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;background:rgba(255,255,255,.12);color:#fff;backdrop-filter:blur(8px)}
+.ccb{width:56px;height:56px;border-radius:50%;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:rgba(255,255,255,.12);color:#fff;backdrop-filter:blur(8px)}
 .ccb svg{width:24px;height:24px;fill:#fff}
 .ccb .cl{font-size:9px;margin-top:3px;opacity:.8}
 .ccb.off{background:var(--wa-danger)}
@@ -168,14 +160,14 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .inc-type{font-size:13px;color:var(--wa-text2);margin-bottom:32px}
 .inc-btns{display:flex;justify-content:center;gap:50px}
 .inc-b{display:flex;flex-direction:column;align-items:center;gap:8px;border:none;background:none;cursor:pointer}
-.inc-b .cir{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:transform .2s}
+.inc-b .cir{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center}
 .inc-b .cir svg{width:28px;height:28px;fill:#fff}
 .inc-b.acc .cir{background:var(--wa-teal)}
 .inc-b.rej .cir{background:var(--wa-danger)}
 .inc-b span:last-child{font-size:11px;color:var(--wa-text2)}
 
 .set-list{flex:1;overflow-y:auto;padding:8px 0}
-.set-item{display:flex;align-items:center;gap:14px;padding:14px 20px;cursor:pointer;transition:background .15s}
+.set-item{display:flex;align-items:center;gap:14px;padding:14px 20px;cursor:pointer}
 .set-item:hover{background:rgba(255,255,255,.03)}
 .set-item .si-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .set-item .si-icon svg{width:20px;height:20px;fill:#fff}
@@ -184,9 +176,8 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .set-divider{height:8px;background:rgba(0,0,0,.2)}
 .set-header{padding:20px 20px 12px;font-size:13px;color:var(--wa-teal);font-weight:500}
 
-/* ডায়ালার */
 .dial-disp{background:var(--wa-panel);border-radius:var(--radius);padding:16px;text-align:center;margin:16px 14px 4px}
-.dial-disp input{width:100%;background:none;border:none;outline:none;color:var(--wa-text);font-size:24px;text-align:center;font-weight:500;letter-spacing:1px}
+.dial-disp input{width:100%;background:none;border:none;outline:none;color:var(--wa-text);font-size:24px;text-align:center;font-weight:500}
 .dial-disp input::placeholder{color:var(--wa-text3);font-size:14px;font-weight:400}
 .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px 40px}
 .key{height:60px;border:none;background:var(--wa-panel);border-radius:50%;font-size:24px;color:var(--wa-text);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
@@ -232,7 +223,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 <div id="toast"></div>
 <div id="secOverlay"></div>
 
-<!-- ★ রেজিস্ট্রেশন (নাম + কান্ট্রি কোড + নম্বর + ইমেইল + পাসওয়ার্ড) ★ -->
+<!-- ★ রেজিস্ট্রেশন — স্ক্রিনশটের মতো (ছবি পিকার নেই, Google নেই) ★ -->
 <section id="phoneScr" class="scr on" aria-label="রেজিস্ট্রেশন">
 <div class="login-bg"></div>
 <div class="login-card">
@@ -261,12 +252,6 @@ input,textarea{-webkit-user-select:text;user-select:text}
 </div>
 
 <button class="pbtn" id="regBtn">রেজিস্টার করুন (ইমেইলে কোড যাবে)</button>
-
-<div class="divider">অথবা</div>
-<button class="pbtn gbtn" id="googleLoginBtn">
-<svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-Google দিয়ে সাইন ইন করুন
-</button>
 <button class="lnk" id="showEmailLogin">অ্যাকাউন্ট আছে? ইমেইল দিয়ে লগইন করুন</button>
 </div>
 </section>
@@ -280,7 +265,7 @@ Google দিয়ে সাইন ইন করুন
 </div>
 </div>
 
-<!-- লগইন (ইমেইল+পাসওয়ার্ড) -->
+<!-- লগইন -->
 <section id="emailScr" class="scr" aria-label="লগইন">
 <div class="topbar">
 <button class="back" id="emailBack"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
@@ -299,7 +284,7 @@ Google দিয়ে সাইন ইন করুন
 </div>
 </section>
 
-<!-- ইমেইল কোড ভেরিফিকেশন -->
+<!-- ইমেইল কোড -->
 <section id="otpScr" class="scr" aria-label="ইমেইল ভেরিফিকেশন">
 <div class="topbar">
 <button class="back" id="otpBack"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
@@ -393,6 +378,7 @@ Google দিয়ে সাইন ইন করুন
 <div class="info"><h3>সেটিংস</h3></div>
 </div>
 <div class="set-list" id="setList"></div>
+<input type="file" id="setAvInput" accept="image/*" style="display:none">
 </section>
 
 <!-- কল -->
