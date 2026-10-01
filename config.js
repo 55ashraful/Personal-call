@@ -10,7 +10,15 @@ var _C = (function () {
     measurementId: "G-K4CV4TGZJN"
   };
 
-  var _z = { appId: 0, appSign: "" };
+  /* ★ EmailJS — emailjs.com থেকে ৩টা কী বসান ★
+     publicKey  → Account → API Keys
+     serviceId  → Email Services (Gmail কানেক্ট করলে পাবেন)
+     templateId → Email Templates (টেমপ্লেটে To Email = {{to_email}} দিন) */
+  var _e = {
+    publicKey:  "YOUR_PUBLIC_KEY",
+    serviceId:  "YOUR_SERVICE_ID",
+    templateId: "YOUR_TEMPLATE_ID"
+  };
 
   return {
     get fb() {
@@ -20,6 +28,6 @@ var _C = (function () {
         messagingSenderId: _f.messagingSenderId, appId: _f.appId, measurementId: _f.measurementId
       };
     },
-    get zg() { return { appId: _z.appId, appSign: _z.appSign }; }
+    get email() { return { publicKey: _e.publicKey, serviceId: _e.serviceId, templateId: _e.templateId }; }
   };
 })();
