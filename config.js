@@ -1,36 +1,17 @@
-var _C = (function () {
-  var _f = {
-    apiKey: "AIzaSyDVavo9JjW3HmmTU2U78w5w6FJPTiuIipo",
-    authDomain: "personal-call-659a4.firebaseapp.com",
-    databaseURL: "https://personal-call-659a4-default-rtdb.firebaseio.com",
-    projectId: "personal-call-659a4",
-    storageBucket: "personal-call-659a4.firebasestorage.app",
-    messagingSenderId: "855478489325",
-    appId: "1:855478489325:web:3df677bfc5cb5c2e5efce4",
-    measurementId: "G-K4CV4TGZJN"
-  };
+  async function sendCodeViaEmail() {
+    if (!emailJsReady()) {
+      var e = new Error('EmailJS কনফিগার নেই');
+      e.code = 'emailjs/not-configured';
+      throw e;
+    }
+    S.emailCode = String(Math.floor(100000 + Math.random() * 900000));
+    S.codeExp = Date.now() + 10 * 60 * 1000;
 
-  /* EmailJS — ইমেইলে ভেরিফিকেশন কোড (আপনার কী বসানো আছে ✅) */
-  var _e = {
-    publicKey:  "k0FNPFrYm0Mo4xkK7",
-    serviceId:  "service_6iktqcc",
-    templateId: "template_lueg2zn"
-  };
-
-  /* ★ ImgBB — প্রোফাইল ছবি (এটা ছিল না, যোগ করুন) ★ */
-  var _i = {
-    apiKey: "d617dab9d2117228e38549791d42104a"
-  };
-
-  return {
-    get fb() {
-      return {
-        apiKey: _f.apiKey, authDomain: _f.authDomain, databaseURL: _f.databaseURL,
-        projectId: _f.projectId, storageBucket: _f.storageBucket,
-        messagingSenderId: _f.messagingSenderId, appId: _f.appId, measurementId: _f.measurementId
-      };
-    },
-    get email() { return { publicKey: _e.publicKey, serviceId: _e.serviceId, templateId: _e.templateId }; },
-    get imgbb() { return { apiKey: _i.apiKey }; }
-  };
-})();
+    /* ★ ফিক্স: publicKey সরাসরি send কলে পাঠানো হচ্ছে ★ */
+    await emailjs.send(_C.email.serviceId, _C.email.templateId, {
+      to_email: S.pendingReg.email,
+      to_name: S.pendingReg.name,
+      code: S.emailCode,
+      app_name: 'Personal Call'
+    }, { publicKey: _C.email.publicKey });
+  }
