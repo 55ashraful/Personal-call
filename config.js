@@ -10,22 +10,14 @@ var _C = (function () {
     measurementId: "G-K4CV4TGZJN"
   };
 
-  var _z = {
-    appId: 0,
-    appSign: ""
-  };
+  var _z = { appId: 0, appSign: "" };
 
   return {
     get fb() {
       return {
-        apiKey: _f.apiKey,
-        authDomain: _f.authDomain,
-        databaseURL: _f.databaseURL,
-        projectId: _f.projectId,
-        storageBucket: _f.storageBucket,
-        messagingSenderId: _f.messagingSenderId,
-        appId: _f.appId,
-        measurementId: _f.measurementId
+        apiKey: _f.apiKey, authDomain: _f.authDomain, databaseURL: _f.databaseURL,
+        projectId: _f.projectId, storageBucket: _f.storageBucket,
+        messagingSenderId: _f.messagingSenderId, appId: _f.appId, measurementId: _f.measurementId
       };
     },
     get zg() { return { appId: _z.appId, appSign: _z.appSign }; }
