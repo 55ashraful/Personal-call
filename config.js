@@ -10,16 +10,6 @@ var _C = (function () {
     measurementId: "G-K4CV4TGZJN"
   };
 
-  /* 
-    ZEGO কনফিগারেশন
-    AppID: আপনার স্ক্রিনশটে দেখাচ্ছে 2f202a411
-    কিন্তু এটা hex ফরম্যাটে আছে, ZEGO SDK তে ডেসিমাল লাগে
-    0x2f202a411 = 12614141649
-    
-    AppSign: ZEGO Console > আপনার প্রজেক্ট > 
-    Basic Configurations এর মধ্যে "AppSign" আছে
-    সেটা কপি করে নিচে বসান
-  */
   var _z = {
     appId: 0,
     appSign: ""
