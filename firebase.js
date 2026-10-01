@@ -1,9 +1,6 @@
 /* ================================================================
-   firebase.js — রিয়েল Firebase + ZEGO লজিক (ফিক্সড ভার্সন)
-   ফিক্স: ১) reCAPTCHA আলাদা container-এ + প্রতিবার নতুন করে বানানো
-          ২) ফোন নম্বর E.164 নরমালাইজ
-          ৩) গুগল পপআপ ব্লক হলে রিডাইরেক্ট ফলব্যাক
-          ৪) চ্যাট লিস্ট কুয়েরি থেকে orderBy বাদ (index এরর এড়াতে)
+   firebase.js — Auth + Firestore সিগন্যালিং + কন্টাক্ট + কল হিস্ট্রি
+   রিয়েল WebRTC কলের সব সিগন্যালিং এখানে
    ================================================================ */
 var DB = (function () {
   var _a = null, _d = null, _ok = false;
@@ -11,7 +8,7 @@ var DB = (function () {
   function init() {
     if (_ok) return true;
     if (typeof _C === 'undefined' || !_C.fb || !_C.fb.apiKey || !_C.fb.projectId) {
-      throw new Error('Firebase কনফিগারেশন দেওয়া হয়নি। config.js এ আপনার credentials বসান।');
+      throw new Error('Firebase কনফিগারেশন দেওয়া হয়নি। config.js ঠিক করুন।');
     }
     try {
       firebase.initializeApp(_C.fb);
@@ -29,47 +26,57 @@ var DB = (function () {
     return 'https://picsum.photos/seed/' + id + '/200/200.jpg';
   }
 
-  /* ===== ফোন OTP পাঠানো (ফিক্সড) ===== */
-  async function phoneSendOTP(phone) {
-    if (!_a) throw new Error('Firebase Auth এখনো রেডি হয়নি');
+  /* ফোন নম্বর E.164 নরমালাইজ — দুই জায়গায় একই রকম সেভ/সার্চ হয় */
+  function normPhone(p) {
+    p = String(p || '').replace(/[\s\-().]/g, '');
+    if (p && p.charAt(0) !== '+') p = '+' + p;
+    return p;
+  }
 
-    /* E.164 নরমালাইজ: স্পেস/ড্যাশ বাদ, শুরুতে + যোগ */
-    phone = String(phone).replace(/[\s\-()]/g, '');
-    if (phone.charAt(0) !== '+') phone = '+' + phone;
-    if (!/^\+\d{7,15}$/.test(phone)) {
-      var fe = new Error('ভুল ফোন নম্বর ফরম্যাট। যেমন: +8801749799622');
+  /* ================================================================
+     ফোন OTP — signInWithPhoneNumber (সবচেয়ে নির্ভরযোগ্য পদ্ধতি)
+     ================================================================ */
+  async function phoneSendOTP(phone) {
+    if (!_a) throw new Error('Firebase Auth রেডি নয়');
+    phone = normPhone(phone);
+    if (!/^\+\d{8,15}$/.test(phone)) {
+      var fe = new Error('ভুল ফরম্যাট। দেশের কোডসহ দিন, যেমন: +8801749799622');
       fe.code = 'auth/invalid-phone-number';
       throw fe;
     }
-
-    /* আগের reCAPTCHA ব্যর্থ অবস্থায় আটকে থাকতে পারে — ক্লিয়ার করে নতুন বানাও */
+    /* আগের verifier পরিষ্কার */
     if (window.recaptchaVerifier) {
       try { window.recaptchaVerifier.clear(); } catch (e) {}
       window.recaptchaVerifier = null;
     }
-
     window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
       size: 'invisible',
-      callback: function () { console.log('reCAPTCHA পাস হয়েছে'); },
-      'expired-callback': function () { console.warn('reCAPTCHA সেশন শেষ'); }
+      callback: function () {},
+      'expired-callback': function () {}
     });
-
     try {
       await window.recaptchaVerifier.render();
-      var prov = new firebase.auth.PhoneAuthProvider(_a);
-      var vid = await prov.verifyPhoneNumber(phone, window.recaptchaVerifier);
-      return vid;
+      /* signInWithPhoneNumber → confirmationResult রাখবে, confirm(code) দিয়ে ভেরিফাই */
+      var cf = await _a.signInWithPhoneNumber(phone, window.recaptchaVerifier);
+      window._confirmationResult = cf;
+      return cf.verificationId;
     } catch (e) {
-      /* ব্যর্থ হলে verifier পরিষ্কার — পরের চেষ্টা যেন ঠিকভাবে কাজ করে */
       try { window.recaptchaVerifier.clear(); } catch (e2) {}
       window.recaptchaVerifier = null;
+      console.error('OTP পাঠানো ত্রুটি:', e);
       throw e;
     }
   }
 
   async function phoneVerify(vid, code) {
-    var cred = firebase.auth.PhoneAuthProvider.credential(vid, code);
-    var res = await _a.signInWithCredential(cred);
+    code = String(code).replace(/\D/g, '');
+    var res;
+    if (window._confirmationResult) {
+      res = await window._confirmationResult.confirm(code);
+    } else {
+      var cred = firebase.auth.PhoneAuthProvider.credential(vid, code);
+      res = await _a.signInWithCredential(cred);
+    }
     var doc = await _d.collection('users').doc(res.user.uid).get();
     if (!doc.exists) {
       var n = 'ব্যবহারকারী_' + res.user.uid.substr(0, 5);
@@ -87,7 +94,7 @@ var DB = (function () {
     return { uid: res.user.uid, ...doc.data(), isNew: false };
   }
 
-  /* ===== ইমেইল রেজিস্টার ===== */
+  /* ===== ইমেইল ===== */
   async function emailReg(name, email, pass) {
     var c = await _a.createUserWithEmailAndPassword(email, pass);
     await c.user.updateProfile({ displayName: name });
@@ -100,15 +107,14 @@ var DB = (function () {
     return { uid: c.user.uid, name: name, email: email, phone: '', avatar: av(c.user.uid) };
   }
 
-  /* ===== ইমেইল লগইন ===== */
   async function emailLogin(email, pass) {
     var c = await _a.signInWithEmailAndPassword(email, pass);
     return await _gu(c.user);
   }
 
-  /* ===== গুগল লগইন (ফিক্সড: মোবাইলে পপআপ ব্লক হলে অটো রিডাইরেক্ট) ===== */
+  /* ===== গুগল ===== */
   async function googleLogin() {
-    if (!_a) throw new Error('Firebase Auth এখনো রেডি হয়নি');
+    if (!_a) throw new Error('Firebase Auth রেডি নয়');
     var p = new firebase.auth.GoogleAuthProvider();
     p.addScope('profile');
     p.addScope('email');
@@ -116,25 +122,19 @@ var DB = (function () {
     try {
       r = await _a.signInWithPopup(p);
     } catch (e) {
-      if (e.code === 'auth/popup-blocked' ||
-          e.code === 'auth/operation-not-supported-in-this-environment' ||
-          e.code === 'auth/cancelled-popup-request') {
+      if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment' || e.code === 'auth/cancelled-popup-request') {
         await _a.signInWithRedirect(p);
-        return null; /* পেজ রিডাইরেক্ট হবে, ফিরে এলে onAuth দিয়ে অটো লগইন হবে */
+        return null;
       }
       throw e;
     }
-    return await _googleUserDoc(r.user);
-  }
-
-  async function _googleUserDoc(u) {
+    var u = r.user;
     var doc = await _d.collection('users').doc(u.uid).get();
     if (!doc.exists) {
       var a = u.photoURL || av(u.uid);
       var data = {
         name: u.displayName || 'ব্যবহারকারী',
-        email: u.email || '',
-        phone: u.phoneNumber || '',
+        email: u.email || '', phone: u.phoneNumber || '',
         avatar: a, online: true,
         lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -145,22 +145,16 @@ var DB = (function () {
     return await _gu(u);
   }
 
-  /* গুগল রিডাইরেক্ট থেকে ফিরে এলে এরর ধরার জন্য */
   function handleRedirect() {
     if (!_a) return;
-    _a.getRedirectResult().catch(function (e) {
-      console.error('Google redirect ত্রুটি:', e);
-      if (typeof toast === 'function') toast('Google লগইন ব্যর্থ: ' + (e.code || e.message), 'err');
-    });
+    _a.getRedirectResult().catch(function (e) { console.error('redirect ত্রুটি:', e); });
   }
 
-  /* ===== প্রোফাইল আপডেট ===== */
   async function updateProfile(uid, data) {
     if (!_d || !uid) return;
     await _d.collection('users').doc(uid).set(data, { merge: true });
   }
 
-  /* ===== লগআউট ===== */
   async function logout(uid) {
     if (uid && _d) {
       try { await _d.collection('users').doc(uid).update({ online: false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }); } catch (e) {}
@@ -168,7 +162,6 @@ var DB = (function () {
     if (_a) await _a.signOut();
   }
 
-  /* ===== অনলাইন/অফলাইন ===== */
   function setOn(uid) {
     if (_d && uid) _d.collection('users').doc(uid).update({ online: true, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }).catch(function () {});
   }
@@ -176,19 +169,49 @@ var DB = (function () {
     if (_d && uid) _d.collection('users').doc(uid).update({ online: false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }).catch(function () {});
   }
 
-  /* ===== সব রিয়েল ইউজার লিসেনার ===== */
   function onUsers(uid, cb) {
     return _d.collection('users')
       .where(firebase.firestore.FieldPath.documentId(), '!=', uid)
       .onSnapshot(function (s) {
         cb(s.docs.map(function (d) { return { id: d.id, ...d.data() }; }));
-      }, function (err) { console.error('onUsers ত্রুটি:', err); });
+      }, function (err) { console.error('onUsers:', err); });
   }
 
-  /* ===== চ্যাট আইডি ===== */
+  /* ===== নম্বর দিয়ে ইউজার খোঁজা (ডায়ালারের জন্য) ===== */
+  async function findByPhone(phone) {
+    phone = normPhone(phone);
+    if (!/^\+\d{8,15}$/.test(phone)) return null;
+    var s = await _d.collection('users').where('phone', '==', phone).limit(1).get();
+    if (s.empty) return null;
+    var d = s.docs[0];
+    return { id: d.id, ...d.data() };
+  }
+
+  /* ===== কন্টাক্ট (WhatsApp-এর মতো সেভ) ===== */
+  async function addContact(uid, contact) {
+    await _d.collection('users').doc(uid).collection('contacts').doc(contact.id).set({
+      uid: contact.id,
+      name: contact.name || 'কন্টাক্ট',
+      phone: contact.phone || '',
+      avatar: contact.avatar || av(contact.id),
+      addedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+
+  async function removeContact(uid, cid) {
+    await _d.collection('users').doc(uid).collection('contacts').doc(cid).delete().catch(function () {});
+  }
+
+  function onContacts(uid, cb) {
+    return _d.collection('users').doc(uid).collection('contacts')
+      .onSnapshot(function (s) {
+        cb(s.docs.map(function (d) { return { id: d.id, ...d.data() }; }));
+      }, function (err) { console.error('onContacts:', err); });
+  }
+
+  /* ===== চ্যাট ===== */
   function chatId(a, b) { return [a, b].sort().join('_'); }
 
-  /* ===== রিয়েল মেসেজ পাঠানো ===== */
   async function sendMsg(cid, m) {
     if (!_d) return;
     await _d.collection('chats').doc(cid).collection('messages').add(m);
@@ -199,16 +222,14 @@ var DB = (function () {
     }, { merge: true });
   }
 
-  /* ===== রিয়েল মেসেজ লিসেনার ===== */
   function onMsgs(cid, cb) {
     return _d.collection('chats').doc(cid).collection('messages')
       .orderBy('timestamp', 'asc')
       .onSnapshot(function (s) {
         cb(s.docChanges().map(function (c) { return { t: c.type, d: { ...c.doc.data(), _id: c.doc.id } }; }));
-      }, function (err) { console.error('onMsgs ত্রুটি:', err); });
+      }, function (err) { console.error('onMsgs:', err); });
   }
 
-  /* ===== চ্যাট লিস্ট (ফিক্সড: orderBy বাদ — composite index লাগে না, client-side সর্ট) ===== */
   function onChatList(uid, cb) {
     return _d.collection('chats')
       .where('parts', 'array-contains', uid)
@@ -220,10 +241,9 @@ var DB = (function () {
           return ty - tx;
         });
         cb(arr);
-      }, function (err) { console.error('onChatList ত্রুটি:', err); });
+      }, function (err) { console.error('onChatList:', err); });
   }
 
-  /* ===== টাইপিং ===== */
   function setTyping(cid, uid) { if (_d) _d.collection('chats').doc(cid).collection('typing').doc(uid).set({ ts: firebase.firestore.FieldValue.serverTimestamp() }); }
   function clearTyping(cid, uid) { if (_d) _d.collection('chats').doc(cid).collection('typing').doc(uid).delete().catch(function () {}); }
   function onTyping(cid, muid, cb) {
@@ -236,15 +256,53 @@ var DB = (function () {
       }, function () {});
   }
 
-  /* ===== রিয়েল কল সিগন্যালিং ===== */
-  async function mkCall(d) {
+  /* ================================================================
+     রিয়েল WebRTC কল সিগন্যালিং
+     calls/{id} = {callerId, calleeId, type, status, offer:{type,sdp}, answer:{type,sdp}}
+     calls/{id}/cands_caller  ও  cands_callee — ICE ক্যান্ডিডেট
+     ================================================================ */
+  async function mkCall(data, offer) {
     if (!_d) return null;
     var id = 'cl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
-    d.status = 'ringing';
-    d.ts = firebase.firestore.FieldValue.serverTimestamp();
-    d.roomId = 'rm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-    await _d.collection('calls').doc(id).set(d);
+    await _d.collection('calls').doc(id).set({
+      callerId: data.callerId,
+      calleeId: data.calleeId,
+      callerName: data.callerName || '',
+      callerAvatar: data.callerAvatar || '',
+      calleeName: data.calleeName || '',
+      type: data.type,
+      status: 'ringing',
+      offer: offer,
+      ts: firebase.firestore.FieldValue.serverTimestamp()
+    });
     return id;
+  }
+
+  function watchCall(id, cb) {
+    if (!_d) return function () {};
+    return _d.collection('calls').doc(id)
+      .onSnapshot(function (d) { if (d.exists) cb(d.data()); }, function () {});
+  }
+
+  async function updCall(id, patch) {
+    if (_d && id) {
+      try { await _d.collection('calls').doc(id).update(patch); } catch (e) {}
+    }
+  }
+
+  async function addCandidate(id, side, cand) {
+    if (!_d || !id) return;
+    try { await _d.collection('calls').doc(id).collection('cands_' + side).add(cand); } catch (e) {}
+  }
+
+  function onCandidates(id, side, cb) {
+    if (!_d) return function () {};
+    return _d.collection('calls').doc(id).collection('cands_' + side)
+      .onSnapshot(function (s) {
+        s.docChanges().forEach(function (c) {
+          if (c.type === 'added') cb(c.doc.data());
+        });
+      }, function () {});
   }
 
   function onIncCall(uid, cb) {
@@ -255,50 +313,29 @@ var DB = (function () {
         s.docChanges().forEach(function (c) {
           if (c.type === 'added') cb({ id: c.doc.id, ...c.doc.data() });
         });
-      }, function (err) { console.error('onIncCall ত্রুটি:', err); });
+      }, function (err) { console.error('onIncCall:', err); });
   }
 
-  function onCallUpd(cid, cb) {
-    if (!_d) return function () {};
-    return _d.collection('calls').doc(cid)
-      .onSnapshot(function (d) {
-        if (d.exists) cb(d.data());
-      }, function () {});
+  /* ===== কল হিস্ট্রি ===== */
+  async function addCallLog(uid, log) {
+    if (!_d || !uid) return;
+    try { await _d.collection('users').doc(uid).collection('callHistory').add(log); } catch (e) {}
   }
 
-  async function updCall(cid, st) {
-    if (_d && cid) try { await _d.collection('calls').doc(cid).update({ status: st }); } catch (e) {}
-  }
-
-  /* ===== গ্রুপ ===== */
-  async function mkGroup(name, parts) {
-    if (!_d) return null;
-    var id = 'grp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-    var data = {
-      name: name, creator: parts[0], members: parts,
-      avatar: av(id),
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    await _d.collection('groups').doc(id).set(data);
-    return { id: id, ...data };
-  }
-
-  function onGroups(uid, cb) {
-    return _d.collection('groups')
-      .where('members', 'array-contains', uid)
+  function onCallHistory(uid, cb) {
+    return _d.collection('users').doc(uid).collection('callHistory')
+      .orderBy('ts', 'desc').limit(40)
       .onSnapshot(function (s) {
         cb(s.docs.map(function (d) { return { id: d.id, ...d.data() }; }));
-      }, function (err) { console.error('onGroups ত্রুটি:', err); });
+      }, function (err) { console.error('onCallHistory:', err); });
   }
 
-  function groupChatId(gid) { return 'g_' + gid; }
-
-  /* ===== অটো লগইন চেক ===== */
+  /* ===== অটো লগইন ===== */
   function onAuth(cb) {
     if (!_a) return;
     _a.onAuthStateChanged(async function (u) {
       if (u) {
-        try { cb(await _gu(u)); } catch (e) { console.error('onAuth ত্রুটি:', e); }
+        try { cb(await _gu(u)); } catch (e) { console.error('onAuth:', e); }
       }
     });
   }
@@ -309,21 +346,9 @@ var DB = (function () {
     return { uid: u.uid, name: u.displayName || 'ব্যবহারকারী', email: u.email || '', phone: u.phoneNumber || '', avatar: av(u.uid) };
   }
 
-  /* ===== ZEGO কল ইনিশিয়ালাইজ ===== */
-  async function initZego(roomId, userId, userName) {
-    if (!_C.zg.appId || !_C.zg.appSign || typeof ZegoExpressEngine === 'undefined') return null;
-    try {
-      var zg = new ZegoExpressEngine(_C.zg.appId, _C.zg.appSign);
-      await zg.loginRoom(roomId, '', { userID: userId, userName: userName });
-      return zg;
-    } catch (e) {
-      console.error('ZEGO ত্রুটি:', e);
-      return null;
-    }
-  }
-
   return {
     init: init,
+    normPhone: normPhone,
     phoneSendOTP: phoneSendOTP,
     phoneVerify: phoneVerify,
     emailReg: emailReg,
@@ -335,6 +360,10 @@ var DB = (function () {
     setOn: setOn,
     setOff: setOff,
     onUsers: onUsers,
+    findByPhone: findByPhone,
+    addContact: addContact,
+    removeContact: removeContact,
+    onContacts: onContacts,
     onChatList: onChatList,
     chatId: chatId,
     sendMsg: sendMsg,
@@ -343,14 +372,14 @@ var DB = (function () {
     clearTyping: clearTyping,
     onTyping: onTyping,
     mkCall: mkCall,
-    onIncCall: onIncCall,
-    onCallUpd: onCallUpd,
+    watchCall: watchCall,
     updCall: updCall,
-    mkGroup: mkGroup,
-    onGroups: onGroups,
-    groupChatId: groupChatId,
+    addCandidate: addCandidate,
+    onCandidates: onCandidates,
+    onIncCall: onIncCall,
+    addCallLog: addCallLog,
+    onCallHistory: onCallHistory,
     onAuth: onAuth,
-    initZego: initZego,
     av: av,
     get auth() { return _a; },
     get db() { return _d; },
