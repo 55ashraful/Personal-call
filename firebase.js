@@ -1,14 +1,13 @@
 /* ================================================================
-   firebase.js — Auth + Firestore সিগন্যালিং + কন্টাক্ট + কল হিস্ট্রি
-   ফিক্স: reCAPTCHA "already been rendered" এরর —
-   প্রতিবার নতুন container element বানানো হয়, তাই এরর আর আসবে না
+   firebase.js — Auth + Firestore + কন্টাক্ট + WebRTC কল সিগন্যালিং
+   নতুন: EmailJS-ভিত্তিক রেজিস্ট্রেশন (SMS লাগে না, বিলিং লাগে না)
    ================================================================ */
 var DB = (function () {
   var _a = null, _d = null, _ok = false;
 
   function init() {
     if (_ok) return true;
-    if (typeof _C === 'undefined' || !_C.fb || !_C.fb.apiKey || !_C.fb.projectId) {
+    if (typeof _C === 'undefined' || !_C.fb || !_C.fb.apiKey) {
       throw new Error('Firebase কনফিগারেশন দেওয়া হয়নি। config.js ঠিক করুন।');
     }
     try {
@@ -23,9 +22,7 @@ var DB = (function () {
     }
   }
 
-  function av(id) {
-    return 'https://picsum.photos/seed/' + id + '/200/200.jpg';
-  }
+  function av(id) { return 'https://picsum.photos/seed/' + id + '/200/200.jpg'; }
 
   function normPhone(p) {
     p = String(p || '').replace(/[\s\-().]/g, '');
@@ -33,98 +30,26 @@ var DB = (function () {
     return p;
   }
 
-  /* ================================================================
-     ★ ফিক্সড: reCAPTCHA — প্রতিবার সম্পূর্ণ নতুন container ★
-     ================================================================ */
-  function freshRecaptchaContainer() {
-    /* পুরনো verifier আছে সেটা বন্ধ করো */
-    if (window.recaptchaVerifier) {
-      try { window.recaptchaVerifier.clear(); } catch (e) {}
-      window.recaptchaVerifier = null;
-    }
-    /* পুরনো container element পুরোপুরি মুছে ফেলো — এতে ভেতরের
-       পুরনো reCAPTCHA iframe-ও চলে যায়, "already rendered" এরর আর হয় না */
-    var old = document.getElementById('recaptcha-container');
-    if (old && old.parentNode) old.parentNode.removeChild(old);
-    /* একদম নতুন container বানাও */
-    var fresh = document.createElement('div');
-    fresh.id = 'recaptcha-container';
-    document.body.appendChild(fresh);
+  /* এই নম্বরে আগে অ্যাকাউন্ট আছে কিনা */
+  async function phoneExists(phone) {
+    var s = await _d.collection('users').where('phone', '==', normPhone(phone)).limit(1).get();
+    return !s.empty;
   }
 
-  /* ================================================================
-     ফোন OTP — signInWithPhoneNumber
-     ================================================================ */
-  async function phoneSendOTP(phone) {
-    if (!_a) throw new Error('Firebase Auth রেডি নয়');
-    phone = normPhone(phone);
-    if (!/^\+\d{8,15}$/.test(phone)) {
-      var fe = new Error('ভুল ফরম্যাট। দেশের কোডসহ দিন, যেমন: +8801749799622');
-      fe.code = 'auth/invalid-phone-number';
-      throw fe;
-    }
-
-    freshRecaptchaContainer(); /* ★ প্রতিবার নতুন container */
-
-    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-      size: 'invisible',
-      callback: function () {},
-      'expired-callback': function () {}
-    });
-
-    try {
-      await window.recaptchaVerifier.render();
-      var cf = await _a.signInWithPhoneNumber(phone, window.recaptchaVerifier);
-      window._confirmationResult = cf;
-      return cf.verificationId;
-    } catch (e) {
-      /* ব্যর্থ হলেও পরিষ্কার — পরের চেষ্টা যেন ঠিকভাবে হয় */
-      try { window.recaptchaVerifier.clear(); } catch (e2) {}
-      window.recaptchaVerifier = null;
-      var old = document.getElementById('recaptcha-container');
-      if (old && old.parentNode) old.parentNode.removeChild(old);
-      console.error('OTP পাঠানো ত্রুটি:', e);
-      throw e;
-    }
-  }
-
-  async function phoneVerify(vid, code) {
-    code = String(code).replace(/\D/g, '');
-    var res;
-    if (window._confirmationResult) {
-      res = await window._confirmationResult.confirm(code);
-    } else {
-      var cred = firebase.auth.PhoneAuthProvider.credential(vid, code);
-      res = await _a.signInWithCredential(cred);
-    }
-    var doc = await _d.collection('users').doc(res.user.uid).get();
-    if (!doc.exists) {
-      var n = 'ব্যবহারকারী_' + res.user.uid.substr(0, 5);
-      await _d.collection('users').doc(res.user.uid).set({
-        name: n,
-        phone: res.user.phoneNumber || '',
-        email: '',
-        avatar: av(res.user.uid),
-        online: true,
-        lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      return { uid: res.user.uid, name: n, phone: res.user.phoneNumber || '', email: '', avatar: av(res.user.uid), isNew: true };
-    }
-    return { uid: res.user.uid, ...doc.data(), isNew: false };
-  }
-
-  /* ===== ইমেইল ===== */
-  async function emailReg(name, email, pass) {
+  /* ইমেইল কোড ভেরিফাই হওয়ার পর অ্যাকাউন্ট তৈরি */
+  async function registerAccount(name, phone, email, pass) {
     var c = await _a.createUserWithEmailAndPassword(email, pass);
     await c.user.updateProfile({ displayName: name });
     await _d.collection('users').doc(c.user.uid).set({
-      name: name, email: email, phone: '',
-      avatar: av(c.user.uid), online: true,
+      name: name,
+      phone: normPhone(phone),
+      email: email,
+      avatar: av(c.user.uid),
+      online: true,
       lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    return { uid: c.user.uid, name: name, email: email, phone: '', avatar: av(c.user.uid) };
+    return { uid: c.user.uid, name: name, phone: normPhone(phone), email: email, avatar: av(c.user.uid), isNew: true };
   }
 
   async function emailLogin(email, pass) {
@@ -273,21 +198,15 @@ var DB = (function () {
       }, function () {});
   }
 
-  /* ================================================================
-     রিয়েল WebRTC কল সিগন্যালিং
-     ================================================================ */
+  /* ===== WebRTC কল সিগন্যালিং ===== */
   async function mkCall(data, offer) {
     if (!_d) return null;
     var id = 'cl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
     await _d.collection('calls').doc(id).set({
-      callerId: data.callerId,
-      calleeId: data.calleeId,
-      callerName: data.callerName || '',
-      callerAvatar: data.callerAvatar || '',
+      callerId: data.callerId, calleeId: data.calleeId,
+      callerName: data.callerName || '', callerAvatar: data.callerAvatar || '',
       calleeName: data.calleeName || '',
-      type: data.type,
-      status: 'ringing',
-      offer: offer,
+      type: data.type, status: 'ringing', offer: offer,
       ts: firebase.firestore.FieldValue.serverTimestamp()
     });
     return id;
@@ -300,9 +219,7 @@ var DB = (function () {
   }
 
   async function updCall(id, patch) {
-    if (_d && id) {
-      try { await _d.collection('calls').doc(id).update(patch); } catch (e) {}
-    }
+    if (_d && id) { try { await _d.collection('calls').doc(id).update(patch); } catch (e) {} }
   }
 
   async function addCandidate(id, side, cand) {
@@ -314,9 +231,7 @@ var DB = (function () {
     if (!_d) return function () {};
     return _d.collection('calls').doc(id).collection('cands_' + side)
       .onSnapshot(function (s) {
-        s.docChanges().forEach(function (c) {
-          if (c.type === 'added') cb(c.doc.data());
-        });
+        s.docChanges().forEach(function (c) { if (c.type === 'added') cb(c.doc.data()); });
       }, function () {});
   }
 
@@ -360,40 +275,22 @@ var DB = (function () {
   }
 
   return {
-    init: init,
-    normPhone: normPhone,
-    phoneSendOTP: phoneSendOTP,
-    phoneVerify: phoneVerify,
-    emailReg: emailReg,
+    init: init, normPhone: normPhone, av: av,
+    phoneExists: phoneExists,
+    registerAccount: registerAccount,
     emailLogin: emailLogin,
     googleLogin: googleLogin,
     handleRedirect: handleRedirect,
     updateProfile: updateProfile,
-    logout: logout,
-    setOn: setOn,
-    setOff: setOff,
-    onUsers: onUsers,
-    findByPhone: findByPhone,
-    addContact: addContact,
-    removeContact: removeContact,
-    onContacts: onContacts,
-    onChatList: onChatList,
-    chatId: chatId,
-    sendMsg: sendMsg,
-    onMsgs: onMsgs,
-    setTyping: setTyping,
-    clearTyping: clearTyping,
-    onTyping: onTyping,
-    mkCall: mkCall,
-    watchCall: watchCall,
-    updCall: updCall,
-    addCandidate: addCandidate,
-    onCandidates: onCandidates,
-    onIncCall: onIncCall,
-    addCallLog: addCallLog,
-    onCallHistory: onCallHistory,
+    logout: logout, setOn: setOn, setOff: setOff,
+    onUsers: onUsers, findByPhone: findByPhone,
+    addContact: addContact, removeContact: removeContact, onContacts: onContacts,
+    onChatList: onChatList, chatId: chatId, sendMsg: sendMsg, onMsgs: onMsgs,
+    setTyping: setTyping, clearTyping: clearTyping, onTyping: onTyping,
+    mkCall: mkCall, watchCall: watchCall, updCall: updCall,
+    addCandidate: addCandidate, onCandidates: onCandidates,
+    onIncCall: onIncCall, addCallLog: addCallLog, onCallHistory: onCallHistory,
     onAuth: onAuth,
-    av: av,
     get auth() { return _a; },
     get db() { return _d; },
     get ok() { return _ok; }
