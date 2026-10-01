@@ -1,52 +1,69 @@
 (function () {
   'use strict';
 
+  /* ★ দেশের লিস্ট — [কোড, পতাকা, নাম, ডায়াল কোড] ★ */
+  var COUNTRIES = [
+    ['BD','🇧🇩','বাংলাদেশ','+880'],['IN','🇮🇳','ভারত','+91'],['PK','🇵🇰','পাকিস্তান','+92'],
+    ['LK','🇱🇰','শ্রীলঙ্কা','+94'],['NP','🇳🇵','নেপাল','+977'],['MM','🇲🇲','মিয়ানমার','+95'],
+    ['AF','🇦🇫','আফগানিস্তান','+93'],['IR','🇮🇷','ইরান','+98'],['IQ','🇮🇶','ইরাক','+964'],
+    ['SA','🇸🇦','সৌদি আরব','+966'],['AE','🇦🇪','ইউএই','+971'],['QA','🇶🇦','কাতার','+974'],
+    ['KW','🇰🇼','কুয়েত','+965'],['BH','🇧🇭','বাহরাইন','+973'],['OM','🇴🇲','ওমান','+968'],
+    ['YE','🇾🇪','ইয়েমেন','+967'],['TR','🇹🇷','তুরস্ক','+90'],['MY','🇲🇾','মালয়েশিয়া','+60'],
+    ['SG','🇸🇬','সিঙ্গাপুর','+65'],['ID','🇮🇩','ইন্দোনেশিয়া','+62'],['TH','🇹🇭','থাইল্যান্ড','+66'],
+    ['VN','🇻🇳','ভিয়েতনাম','+84'],['PH','🇵🇭','ফিলিপাইন','+63'],['KH','🇰🇭','কম্বোডিয়া','+855'],
+    ['CN','🇨🇳','চীন','+86'],['JP','🇯🇵','জাপান','+81'],['KR','🇰🇷','দক্ষিণ কোরিয়া','+82'],
+    ['UZ','🇺🇿','উজবেকিস্তান','+998'],['KZ','🇰🇿','কাজাকস্তান','+7'],['IL','🇮🇱','ইসরায়েল','+972'],
+    ['JO','🇯🇴','জর্ডান','+962'],['LB','🇱🇧','লেবানন','+961'],['EG','🇪🇬','মিশর','+20'],
+    ['SD','🇸🇩','সুদান','+249'],['LY','🇱🇾','লিবিয়া','+218'],['TN','🇹🇳','তিউনিসিয়া','+216'],
+    ['DZ','🇩🇿','আলজেরিয়া','+213'],['MA','🇲🇦','মরক্কো','+212'],['NG','🇳🇬','নাইজেরিয়া','+234'],
+    ['GH','🇬🇭','ঘানা','+233'],['KE','🇰🇪','কেনিয়া','+254'],['TZ','🇹🇿','তানজানিয়া','+255'],
+    ['UG','🇺🇬','উগান্ডা','+256'],['ET','🇪🇹','ইথিওপিয়া','+251'],['ZA','🇿🇦','দক্ষিণ আফ্রিকা','+27'],
+    ['GB','🇬🇧','যুক্তরাজ্য','+44'],['US','🇺🇸','যুক্তরাষ্ট্র','+1'],['CA','🇨🇦','কানাডা','+1'],
+    ['AU','🇦🇺','অস্ট্রেলিয়া','+61'],['NZ','🇳🇿','নিউজিল্যান্ড','+64'],['FR','🇫🇷','ফ্রান্স','+33'],
+    ['DE','🇩🇪','জার্মানি','+49'],['IT','🇮🇹','ইতালি','+39'],['ES','🇪🇸','স্পেন','+34'],
+    ['PT','🇵🇹','পর্তুগাল','+351'],['NL','🇳🇱','নেদারল্যান্ডস','+31'],['BE','🇧🇪','বেলজিয়াম','+32'],
+    ['CH','🇨🇭','সুইজারল্যান্ড','+41'],['SE','🇸🇪','সুইডেন','+46'],['NO','🇳🇴','নরওয়ে','+47'],
+    ['DK','🇩🇰','ডেনমার্ক','+45'],['FI','🇫🇮','ফিনল্যান্ড','+358'],['PL','🇵🇱','পোল্যান্ড','+48'],
+    ['RU','🇷🇺','রাশিয়া','+7'],['UA','🇺🇦','ইউক্রেন','+380'],['BR','🇧🇷','ব্রাজিল','+55'],
+    ['AR','🇦🇷','আর্জেন্টিনা','+54'],['MX','🇲🇽','মেক্সিকো','+52'],['CL','🇨🇱','চিলি','+56'],
+    ['CO','🇨🇴','কলম্বিয়া','+57'],['PE','🇵🇪','পেরু','+51']
+  ];
+
+  /* টাইমজোন দিয়ে দেশ অটো-ডিটেক্ট */
+  function guessCountry() {
+    try {
+      var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      var m = { 'Asia/Dhaka':'BD','Asia/Kolkata':'IN','Asia/Karachi':'PK','Asia/Colombo':'LK','Asia/Kathmandu':'NP',
+        'Asia/Yangon':'MM','Asia/Kuala_Lumpur':'MY','Asia/Singapore':'SG','Asia/Jakarta':'ID','Asia/Bangkok':'TH',
+        'Asia/Manila':'PH','Asia/Riyadh':'SA','Asia/Dubai':'AE','Asia/Qatar':'QA','Asia/Kuwait':'KW',
+        'Asia/Baghdad':'IQ','Asia/Tehran':'IR','Europe/Istanbul':'TR','Asia/Shanghai':'CN','Asia/Tokyo':'JP',
+        'Asia/Seoul':'KR','Europe/London':'GB','America/New_York':'US','America/Chicago':'US',
+        'America/Denver':'US','America/Los_Angeles':'US','America/Toronto':'CA','Australia/Sydney':'AU',
+        'Europe/Paris':'FR','Europe/Berlin':'DE' };
+      var c = m[tz];
+      if (c) return COUNTRIES.find(function (x) { return x[0] === c; }) || COUNTRIES[0];
+    } catch (e) {}
+    return COUNTRIES[0];
+  }
+
   var S = {
-    user: null,
-    users: [],
-    chatList: [],
-    chatMsgs: {},
-    contacts: [],
-    callHistory: [],
-    groups: [],
-    chatTarget: null,
-    chatUnsub: null,
-    typingUnsub: null,
-    typingTimeout: null,
-    chatListUnsub: null,
-    contactsUnsub: null,
-    historyUnsub: null,
-    unsubUsers: null,
-    unsubCalls: null,
-    dialUser: null,
+    user: null, users: [], chatList: [], chatMsgs: {}, contacts: [], callHistory: [],
+    chatTarget: null, chatUnsub: null, typingUnsub: null, typingTimeout: null,
+    chatListUnsub: null, contactsUnsub: null, historyUnsub: null,
+    unsubUsers: null, unsubCalls: null, dialUser: null,
+    /* রেজিস্ট্রেশন */
+    ccCountry: null,
+    pendingReg: null,
+    emailCode: null, codeExp: 0,
+    resendTimer: null, resendSec: 60,
     /* কল */
-    callActive: false,
-    callType: 'video',
-    callPhase: 'idle',
-    callTarget: null,
-    callDocId: null,
-    iAmCaller: false,
-    wasConnected: false,
-    pc: null,
-    callUnsub: null,
-    candUnsub: null,
-    outTimeout: null,
-    incTimeout: null,
-    isMuted: false,
-    isCamOff: false,
-    callStart: null,
-    callTimerIv: null,
-    localStream: null,
-    ringCtx: null,
-    ringIv: null,
-    resendTimer: null,
-    resendSec: 60,
-    verificationId: null,
-    phoneNum: '',
-    isEmailReg: false
+    callActive: false, callType: 'video', callPhase: 'idle',
+    callTarget: null, callDocId: null, iAmCaller: false, wasConnected: false,
+    pc: null, callUnsub: null, candUnsub: null, outTimeout: null, incTimeout: null,
+    isMuted: false, isCamOff: false, callStart: null, callTimerIv: null,
+    localStream: null, ringCtx: null, ringIv: null
   };
 
-  /* STUN + ফ্রি TURN — NAT-এর পেছনেও কানেক্ট হওয়ার সম্ভাবনা বাড়ায় */
   var RTC_CFG = {
     iceServers: [
       { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
@@ -65,9 +82,11 @@
     phoneScr: q('#phoneScr'), emailScr: q('#emailScr'), otpScr: q('#otpScr'),
     mainScr: q('#mainScr'), chatScr: q('#chatScr'), setScr: q('#setScr'),
     dialScr: q('#dialScr'), callScr: q('#callScr'), incPop: q('#incPop'),
-    phoneIn: q('#phoneIn'), sendOtpBtn: q('#sendOtpBtn'), googleLoginBtn: q('#googleLoginBtn'), showEmailLogin: q('#showEmailLogin'),
-    emailBack: q('#emailBack'), emailNameGrp: q('#emailNameGrp'), emailNameIn: q('#emailNameIn'),
-    emailAddrIn: q('#emailAddrIn'), emailPassIn: q('#emailPassIn'), emailSubmitBtn: q('#emailSubmitBtn'), toggleEmailReg: q('#toggleEmailReg'),
+    nameIn: q('#nameIn'), phoneIn: q('#phoneIn'), regEmailIn: q('#regEmailIn'), regPassIn: q('#regPassIn'),
+    regBtn: q('#regBtn'), googleLoginBtn: q('#googleLoginBtn'), showEmailLogin: q('#showEmailLogin'),
+    ccBtn: q('#ccBtn'), ccFlag: q('#ccFlag'), ccCode: q('#ccCode'),
+    ccOv: q('#ccOv'), ccClose: q('#ccClose'), ccSearchIn: q('#ccSearchIn'), ccList: q('#ccList'),
+    emailBack: q('#emailBack'), loginEmailIn: q('#loginEmailIn'), loginPassIn: q('#loginPassIn'), loginBtn: q('#loginBtn'),
     otpBack: q('#otpBack'), otpPhone: q('#otpPhone'), otpInputs: q('#otpInputs'),
     verifyOtpBtn: q('#verifyOtpBtn'), resendBtn: q('#resendBtn'), resendTimer: q('#resendTimer'),
     tabChats: q('#tabChats'), tabCalls: q('#tabCalls'), tabContacts: q('#tabContacts'),
@@ -92,27 +111,21 @@
     D.toast._t = setTimeout(function () { D.toast.className = ''; }, 5000);
   }
 
-  function authErrMsg(e) {
+  function errMsG(e) {
     console.error('ত্রুটি:', e);
     var code = e && e.code ? e.code : '';
     var map = {
-      'auth/unauthorized-domain': 'Firebase Console → Authentication → Settings → Authorized domains এ এই ডোমেইন যোগ করুন',
-      'auth/operation-not-allowed': 'Firebase Console → Authentication → Sign-in method এ Phone ও Google চালু করুন',
-      'auth/invalid-app-credential': 'আসল SMS-এর জন্য Blaze প্ল্যান লাগবে। টেস্টের জন্য Console → Sign-in method → Phone → "Phone numbers for testing"-এ একটা নম্বর+কোড যোগ করুন',
-      'auth/captcha-check-failed': 'reCAPTCHA ব্যর্থ — পেজ রিফ্রেশ করে আবার চেষ্টা করুন',
-      'auth/invalid-phone-number': 'ভুল নম্বর ফরম্যাট। যেমন: +8801749799622',
-      'auth/too-many-requests': 'অনেকবার চেষ্টা হয়েছে, কিছুক্ষণ পর চেষ্টা করুন',
-      'auth/quota-exceeded': 'SMS কোটা শেষ',
-      'auth/popup-blocked': 'পপআপ ব্লক হয়েছে — অনুমতি দিন',
-      'auth/popup-closed-by-user': 'পপআপ বন্ধ করা হয়েছে',
-      'auth/network-request-failed': 'ইন্টারনেট সমস্যা',
-      'auth/invalid-verification-code': 'ভুল কোড, আবার চেষ্টা করুন',
-      'auth/code-expired': 'কোডের মেয়াদ শেষ, আবার পাঠান',
+      'emailjs/not-configured': 'config.js-এ EmailJS-এর ৩টা কী (publicKey, serviceId, templateId) বসান',
+      'auth/email-already-in-use': 'এই ইমেইলে আগেই অ্যাকাউন্ট আছে — লগইন করুন',
+      'auth/invalid-email': 'ভুল ইমেইল ফরম্যাট',
+      'auth/weak-password': 'পাসওয়ার্ড দুর্বল — কমপক্ষে ৬ অক্ষর',
       'auth/user-not-found': 'এই ইমেইলে অ্যাকাউন্ট নেই',
       'auth/wrong-password': 'ভুল পাসওয়ার্ড',
-      'auth/invalid-email': 'ভুল ইমেইল ফরম্যাট',
-      'auth/email-already-in-use': 'ইমেইলটি আগেই ব্যবহৃত',
-      'auth/weak-password': 'পাসওয়ার্ড দুর্বল — ৬ অক্ষর দিন'
+      'auth/invalid-credential': 'ইমেইল বা পাসওয়ার্ড ভুল',
+      'auth/too-many-requests': 'অনেকবার চেষ্টা হয়েছে, পরে চেষ্টা করুন',
+      'auth/network-request-failed': 'ইন্টারনেট সমস্যা',
+      'auth/unauthorized-domain': 'Firebase Console → Authentication → Settings → Authorized domains এ ডোমেইন যোগ করুন',
+      'auth/popup-blocked': 'পপআপ ব্লক হয়েছে — অনুমতি দিন'
     };
     return map[code] || ('ত্রুটি: ' + (code || (e && e.message) || 'অজানা'));
   }
@@ -139,7 +152,6 @@
     return d.toLocaleDateString('bn-BD', { day: 'numeric', month: 'short' });
   }
   function fmtTimeShort(ts) { return new Date(ts).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true }); }
-
   function findUser(uid) { return S.users.find(function (u) { return u.id === uid; }); }
   function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
@@ -219,83 +231,174 @@
   }
 
   /* ================================================================
-     লগইন
+     ★ কান্ট্রি সিলেক্টর (WhatsApp-স্টাইল) ★
      ================================================================ */
-  D.sendOtpBtn.addEventListener('click', async function () {
-    var phone = D.phoneIn.value.trim();
-    if (!phone || phone.length < 7) { toast('দেশের কোডসহ নম্বর দিন (যেমন: +8801749799622)', 'err'); return; }
-    D.sendOtpBtn.disabled = true;
-    D.sendOtpBtn.innerHTML = '<span class="sp"></span>';
+  function setCountry(c) {
+    S.ccCountry = c;
+    D.ccFlag.textContent = c[1];
+    D.ccCode.textContent = c[3];
+  }
+
+  function renderCountryList(term) {
+    var t = (term || '').toLowerCase();
+    var html = '';
+    COUNTRIES.forEach(function (c) {
+      if (t && c[2].toLowerCase().indexOf(t) === -1 && c[3].indexOf(t) === -1 && c[0].toLowerCase() !== t) return;
+      html += '<div class="cc-item" data-cc="' + c[0] + '"><span class="fl">' + c[1] + '</span><span class="nm">' + esc(c[2]) + '</span><span class="dl">' + c[3] + '</span></div>';
+    });
+    D.ccList.innerHTML = html || '<div class="empty-st"><p>পাওয়া যায়নি</p></div>';
+    D.ccList.querySelectorAll('.cc-item').forEach(function (it) {
+      it.addEventListener('click', function () {
+        var c = COUNTRIES.find(function (x) { return x[0] === it.getAttribute('data-cc'); });
+        if (c) setCountry(c);
+        D.ccOv.classList.remove('on');
+      });
+    });
+  }
+
+  setCountry(guessCountry()); /* অটো-ডিটেক্ট */
+
+  D.ccBtn.addEventListener('click', function () {
+    D.ccSearchIn.value = '';
+    renderCountryList('');
+    D.ccOv.classList.add('on');
+  });
+  D.ccClose.addEventListener('click', function () { D.ccOv.classList.remove('on'); });
+  D.ccSearchIn.addEventListener('input', function () { renderCountryList(D.ccSearchIn.value); });
+
+  /* ================================================================
+     ★ রেজিস্ট্রেশন — ইমেইলে কোড যাবে (EmailJS) ★
+     ================================================================ */
+  function emailJsReady() {
+    return typeof emailjs !== 'undefined' && _C.email && _C.email.publicKey &&
+      _C.email.serviceId && _C.email.templateId &&
+      String(_C.email.publicKey).indexOf('YOUR') !== 0 &&
+      String(_C.email.serviceId).indexOf('YOUR') !== 0 &&
+      String(_C.email.templateId).indexOf('YOUR') !== 0;
+  }
+
+  async function sendCodeViaEmail() {
+    if (!emailJsReady()) {
+      var e = new Error('EmailJS কনফিগার নেই');
+      e.code = 'emailjs/not-configured';
+      throw e;
+    }
+    S.emailCode = String(Math.floor(100000 + Math.random() * 900000));
+    S.codeExp = Date.now() + 10 * 60 * 1000; /* ১০ মিনিট বৈধ */
+    await emailjs.send(_C.email.serviceId, _C.email.templateId, {
+      to_email: S.pendingReg.email,
+      to_name: S.pendingReg.name,
+      code: S.emailCode,
+      app_name: 'Personal Call'
+    });
+  }
+
+  D.regBtn.addEventListener('click', async function () {
+    var name = D.nameIn.value.trim();
+    var nnum = D.phoneIn.value.replace(/\D/g, '');
+    var full = S.ccCountry ? S.ccCountry[3] + nnum : nnum;
+    var email = D.regEmailIn.value.trim();
+    var pass = D.regPassIn.value;
+
+    if (!name) { toast('নাম দিন', 'err'); return; }
+    if (nnum.length < 6 || nnum.length > 14) { toast('সঠিক মোবাইল নম্বর দিন (শুধু সংখ্যা)', 'err'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('সঠিক ইমেইল দিন', 'err'); return; }
+    if (pass.length < 6) { toast('পাসওয়ার্ড কমপক্ষে ৬ অক্ষর', 'err'); return; }
+
+    D.regBtn.disabled = true;
+    D.regBtn.innerHTML = '<span class="sp"></span>';
+
     try {
-      S.verificationId = await DB.phoneSendOTP(phone);
-      S.phoneNum = phone;
-      D.otpPhone.textContent = phone;
+      /* একই নম্বরে দুইবার অ্যাকাউন্ট নয় */
+      if (await DB.phoneExists(full)) {
+        toast('এই নম্বরে আগেই অ্যাকাউন্ট আছে — লগইন করুন', 'err');
+        D.regBtn.disabled = false;
+        D.regBtn.textContent = 'রেজিস্টার করুন (ইমেইলে কোড যাবে)';
+        return;
+      }
+
+      S.pendingReg = { name: name, phone: full, email: email, pass: pass };
+      await sendCodeViaEmail();
+
+      D.otpPhone.textContent = email;
       clearOTP();
       go(D.phoneScr, D.otpScr);
       startResendTimer();
-      toast('কোড পাঠানো হয়েছে — SMS চেক করুন', 'ok');
-    } catch (e) { toast(authErrMsg(e), 'err'); }
-    D.sendOtpBtn.disabled = false;
-    D.sendOtpBtn.textContent = 'ভেরিফিকেশন কোড পাঠান';
+      toast('কোড আপনার ইমেইলে পাঠানো হয়েছে 📧', 'ok');
+    } catch (e) {
+      toast(errMsG(e), 'err');
+    }
+
+    D.regBtn.disabled = false;
+    D.regBtn.textContent = 'রেজিস্টার করুন (ইমেইলে কোড যাবে)';
   });
 
+  /* কোড ভেরিফাই → অ্যাকাউন্ট তৈরি */
   D.verifyOtpBtn.addEventListener('click', async function () {
     var code = getOTP();
     if (code.length !== 6) { toast('৬ সংখ্যার কোড দিন', 'err'); return; }
+    if (Date.now() > S.codeExp) { toast('কোডের মেয়াদ শেষ — আবার পাঠান', 'err'); return; }
+
     D.verifyOtpBtn.disabled = true;
     D.verifyOtpBtn.innerHTML = '<span class="sp"></span>';
+
     try {
-      S.user = await DB.phoneVerify(S.verificationId, code);
-      toast('সফলভাবে লগইন হয়েছে', 'ok');
-      enterMain();
-    } catch (e) { toast(authErrMsg(e), 'err'); }
+      if (code !== S.emailCode) {
+        var e = new Error('ভুল কোড');
+        toast('ভুল কোড, ইমেইলটা আবার দেখুন', 'err');
+      } else {
+        var r = S.pendingReg;
+        S.user = await DB.registerAccount(r.name, r.phone, r.email, r.pass);
+        S.pendingReg = null; S.emailCode = null;
+        clearInterval(S.resendTimer);
+        toast('অ্যাকাউন্ট তৈরি হয়েছে! 🎉', 'ok');
+        enterMain();
+      }
+    } catch (e) {
+      toast(errMsG(e), 'err');
+    }
+
     D.verifyOtpBtn.disabled = false;
     D.verifyOtpBtn.textContent = 'ভেরিফাই করুন';
   });
 
   D.resendBtn.addEventListener('click', async function () {
     try {
-      S.verificationId = await DB.phoneSendOTP(S.phoneNum);
+      await sendCodeViaEmail();
       startResendTimer(); clearOTP();
-      toast('কোড পুনরায় পাঠানো হয়েছে', 'ok');
-    } catch (e) { toast(authErrMsg(e), 'err'); }
+      toast('নতুন কোড ইমেইলে পাঠানো হয়েছে', 'ok');
+    } catch (e) { toast(errMsG(e), 'err'); }
   });
 
   D.otpBack.addEventListener('click', function () { back(D.otpScr, D.phoneScr); });
+
+  /* লগইন (ইমেইল + পাসওয়ার্ড) */
   D.showEmailLogin.addEventListener('click', function () { go(D.phoneScr, D.emailScr, 'from-l'); });
   D.emailBack.addEventListener('click', function () { back(D.emailScr, D.phoneScr); });
-  D.toggleEmailReg.addEventListener('click', function () {
-    S.isEmailReg = !S.isEmailReg;
-    D.emailNameGrp.style.display = S.isEmailReg ? 'block' : 'none';
-    D.emailSubmitBtn.textContent = S.isEmailReg ? 'অ্যাকাউন্ট তৈরি করুন' : 'সাইন ইন করুন';
-    D.toggleEmailReg.textContent = S.isEmailReg ? 'ইতিমধ্যে অ্যাকাউন্ট আছে? সাইন ইন' : 'নতুন অ্যাকাউন্ট তৈরি করুন';
-  });
 
-  D.emailSubmitBtn.addEventListener('click', async function () {
-    var name = D.emailNameIn.value.trim();
-    var email = D.emailAddrIn.value.trim();
-    var pass = D.emailPassIn.value;
+  D.loginBtn.addEventListener('click', async function () {
+    var email = D.loginEmailIn.value.trim();
+    var pass = D.loginPassIn.value;
     if (!email || !pass) { toast('ইমেইল ও পাসওয়ার্ড দিন', 'err'); return; }
-    if (pass.length < 6) { toast('পাসওয়ার্ড কমপক্ষে ৬ অক্ষর', 'err'); return; }
-    if (S.isEmailReg && !name) { toast('নাম দিন', 'err'); return; }
-    D.emailSubmitBtn.disabled = true;
-    D.emailSubmitBtn.innerHTML = '<span class="sp"></span>';
+    D.loginBtn.disabled = true;
+    D.loginBtn.innerHTML = '<span class="sp"></span>';
     try {
-      S.user = S.isEmailReg ? await DB.emailReg(name, email, pass) : await DB.emailLogin(email, pass);
+      S.user = await DB.emailLogin(email, pass);
       toast('সফলভাবে লগইন হয়েছে', 'ok');
       enterMain();
-    } catch (e) { toast(authErrMsg(e), 'err'); }
-    D.emailSubmitBtn.disabled = false;
-    D.emailSubmitBtn.textContent = S.isEmailReg ? 'অ্যাকাউন্ট তৈরি করুন' : 'সাইন ইন করুন';
+    } catch (e) { toast(errMsG(e), 'err'); }
+    D.loginBtn.disabled = false;
+    D.loginBtn.textContent = 'লগইন করুন';
   });
 
+  /* গুগল */
   D.googleLoginBtn.addEventListener('click', async function () {
     D.googleLoginBtn.disabled = true;
     D.googleLoginBtn.innerHTML = '<span class="sp"></span>';
     try {
       var u = await DB.googleLogin();
       if (u) { S.user = u; toast('সফলভাবে লগইন হয়েছে', 'ok'); enterMain(); }
-    } catch (e) { toast(authErrMsg(e), 'err'); }
+    } catch (e) { toast(errMsG(e), 'err'); }
     D.googleLoginBtn.disabled = false;
     D.googleLoginBtn.innerHTML = '<svg viewBox="0 0 24 24" style="width:20px;height:20px"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Google দিয়ে সাইন ইন করুন';
   });
@@ -325,14 +428,16 @@
     go(D.phoneScr, D.mainScr);
   }
 
-  /* ================================================================
-     চ্যাট লিস্ট
-     ================================================================ */
+  var CALL_SVG = '<svg viewBox="0 0 24 24"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg>';
+  var VID_SVG = '<svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>';
+  var CHAT_SVG = '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>';
+  var DEL_SVG = '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
+
   function renderChatList() {
     var html = '';
     if (S.chatList.length === 0) {
       if (S.users.length === 0) {
-        html = '<div class="empty-st"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg><p>এখনো কোনো ব্যবহারকারী নেই।<br>অন্য কেউ রেজিস্টার করলে এখানে দেখাবে।</p></div>';
+        html = '<div class="empty-st"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg><p>এখনো কোনো ব্যবহারকারী নেই।<br>নিচের 📞 বাটনে চাপ দিয়ে নম্বর ডায়াল করুন</p></div>';
       } else {
         S.users.forEach(function (u) {
           html += '<div class="chat-row" data-uid="' + u.id + '">' +
@@ -371,18 +476,10 @@
     });
   }
 
-  /* ================================================================
-     কন্টাক্ট লিস্ট (WhatsApp-এর মতো)
-     ================================================================ */
-  var CALL_SVG = '<svg viewBox="0 0 24 24"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg>';
-  var VID_SVG = '<svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>';
-  var CHAT_SVG = '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>';
-  var DEL_SVG = '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
-
   function renderContacts() {
     var html = '<div class="sec-label">আমার কন্টাক্ট (' + S.contacts.length + ')</div>';
     if (S.contacts.length === 0) {
-      html += '<div class="empty-st"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg><p>নিচের <b>+</b> বাটনে চাপ দিয়ে<br>ফোনের মতো নম্বর ডায়াল করে<br>কন্টাক্ট যোগ করুন</p></div>';
+      html += '<div class="empty-st"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg><p>নিচের <b>📞</b> বাটনে চাপ দিয়ে<br>নম্বর ডায়াল করে কন্টাক্ট সেভ করুন</p></div>';
     }
     S.contacts.forEach(function (c) {
       var live = findUser(c.uid);
@@ -405,8 +502,6 @@
           e.stopPropagation();
           var act = btn.getAttribute('data-act');
           if (act === 'del') { DB.removeContact(S.user.uid, uid); toast('কন্টাক্ট মুছে ফেলা হয়েছে', 'ok'); return; }
-          var c = S.contacts.find(function (x) { return x.uid === uid; });
-          if (!c) return;
           if (!findUser(uid)) { toast('এই নম্বরের মালিক এখনো অ্যাপে জয়েন করেনি', 'err'); return; }
           startCall(uid, act === 'video' ? 'video' : 'audio');
           return;
@@ -416,29 +511,24 @@
     });
   }
 
-  /* ================================================================
-     কল হিস্ট্রি
-     ================================================================ */
   function renderCallHistory() {
     var html = '<div class="sec-label">সাম্প্রতিক কল</div>';
     if (S.callHistory.length === 0) {
       html += '<div class="empty-st"><p>এখনো কোনো কল হয়নি</p></div>';
     }
     S.callHistory.forEach(function (h) {
-      var dirIcon = h.dir === 'out'
-        ? '<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:' + (h.status === 'completed' ? 'var(--wa-teal)' : 'var(--wa-danger)') + ';transform:rotate(45deg)"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>'
-        : '<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:' + (h.status === 'completed' ? 'var(--wa-teal)' : 'var(--wa-danger)') + ';transform:rotate(225deg)"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
+      var col = h.status === 'completed' ? 'var(--wa-teal)' : 'var(--wa-danger)';
       var dirTxt = h.dir === 'out' ? 'আউটগোয়িং' : (h.status === 'completed' ? 'ইনকামিং' : 'মিসড কল');
-      var statusTxt = h.status === 'completed' ? (h.dur ? dirTxt + ' • ' + fmtTime(h.dur) : dirTxt) : dirTxt;
-      html += '<div class="chat-row" data-uid="' + h.withUid + '" data-type="' + h.type + '">' +
+      var statusTxt = h.status === 'completed' && h.dur ? dirTxt + ' • ' + fmtTime(h.dur) : dirTxt;
+      html += '<div class="chat-row" data-uid="' + h.withUid + '" data-type="' + (h.type || 'audio') + '">' +
         '<img class="av" src="' + esc(h.avatar) + '" alt="">' +
-        '<div class="det"><h4>' + esc(h.name) + '</h4><p style="display:flex;align-items:center;gap:5px">' + dirIcon + ' ' + statusTxt + '</p></div>' +
+        '<div class="det"><h4>' + esc(h.name) + '</h4><p style="color:' + col + '">' + statusTxt + '</p></div>' +
         '<div class="meta"><span class="time">' + (h.ts ? fmtDate(h.ts) : '') + '</span></div>' +
-        '<button class="mini-act" data-act="redial">' + CALL_SVG + '</button></div>';
+        '<button class="mini-act">' + CALL_SVG + '</button></div>';
     });
     D.tabCalls.innerHTML = html;
     D.tabCalls.querySelectorAll('.chat-row').forEach(function (row) {
-      row.addEventListener('click', function (e) {
+      row.addEventListener('click', function () {
         var uid = row.getAttribute('data-uid');
         var type = row.getAttribute('data-type') || 'audio';
         if (!findUser(uid)) { toast('ইউজার পাওয়া যায়নি', 'err'); return; }
@@ -448,7 +538,7 @@
   }
 
   /* ================================================================
-     ডায়ালার — ফোনের ডায়াল প্যাডের মতো
+     ডায়ালার
      ================================================================ */
   D.dialFab.addEventListener('click', function () { go(D.mainScr, D.dialScr, 'from-l'); });
   D.dialBack.addEventListener('click', function () { back(D.dialScr, D.mainScr); });
@@ -463,7 +553,7 @@
 
   D.dialSearchBtn.addEventListener('click', async function () {
     var num = DB.normPhone(D.dialNumIn.value);
-    if (!/^\+\d{8,15}$/.test(num)) { toast('সঠিক নম্বর দিন (দেশের কোডসহ)', 'err'); return; }
+    if (!/^\+\d{8,15}$/.test(num)) { toast('দেশের কোডসহ সঠিক নম্বর দিন (যেমন: +8801749799622)', 'err'); return; }
     D.dialSearchBtn.disabled = true;
     D.dialSearchBtn.textContent = 'খোঁজা হচ্ছে...';
     D.dialResult.innerHTML = '';
@@ -473,7 +563,6 @@
         D.dialResult.innerHTML = '<div class="dial-card"><p style="margin:0">এই নম্বরে কোনো অ্যাকাউন্ট নেই।<br><span style="font-size:12px">নম্বরটির মালিক অ্যাপে রেজিস্টার করলে দেখা যাবে</span></p></div>';
         return;
       }
-      S.dialUser = u;
       D.dialResult.innerHTML =
         '<div class="dial-card">' +
         '<img src="' + esc(u.avatar) + '" alt="">' +
@@ -593,9 +682,7 @@
     back(D.chatScr, D.mainScr);
   });
 
-  /* ================================================================
-     ট্যাব
-     ================================================================ */
+  /* ট্যাব */
   qa('.tab').forEach(function (tab) {
     tab.addEventListener('click', function () {
       qa('.tab').forEach(function (t) { t.classList.remove('on'); });
@@ -607,9 +694,7 @@
     });
   });
 
-  /* ================================================================
-     সেটিংস
-     ================================================================ */
+  /* সেটিংস */
   D.menuBtn.addEventListener('click', function () { renderSettings(); go(D.mainScr, D.setScr, 'from-l'); });
   D.setBackBtn.addEventListener('click', function () { back(D.setScr, D.mainScr); });
 
@@ -662,9 +747,8 @@
   });
 
   /* ================================================================
-     ★★★ রিয়েল WebRTC কল সিস্টেম (WhatsApp-এর মতো) ★★★
+     রিয়েল WebRTC কল
      ================================================================ */
-
   function cleanupPC() {
     if (S.candUnsub) { S.candUnsub(); S.candUnsub = null; }
     if (S.callUnsub) { S.callUnsub(); S.callUnsub = null; }
@@ -688,30 +772,21 @@
     D.callScr.classList.remove('on');
   }
 
-  /* PeerConnection তৈরি — রিমোট স্ট্রিম + ICE হ্যান্ডলিং */
   function createPC(callId, mySide) {
     var pc = new RTCPeerConnection(RTC_CFG);
-
     if (S.localStream) {
       S.localStream.getTracks().forEach(function (t) { pc.addTrack(t, S.localStream); });
     }
-
     pc.ontrack = function (e) {
       var remote = e.streams[0];
-      if (S.callType === 'video') {
-        D.remVid.srcObject = remote;
-      } else {
-        D.remAudio.srcObject = remote; /* অডিও কলে শোনা যাবে */
-      }
+      if (S.callType === 'video') D.remVid.srcObject = remote;
+      else D.remAudio.srcObject = remote;
     };
-
     pc.onicecandidate = function (e) {
       if (e.candidate) DB.addCandidate(callId, mySide, e.candidate.toJSON());
     };
-
     pc.onconnectionstatechange = function () {
       var st = pc.connectionState;
-      console.log('PC স্টেট:', st);
       if (st === 'connected') {
         S.wasConnected = true;
         stopRing();
@@ -722,25 +797,18 @@
       } else if (st === 'failed') {
         toast('কানেকশন ব্যর্থ — নেটওয়ার্ক চেক করুন', 'err');
         endCall(true);
-      } else if (st === 'disconnected') {
-        /* সাময়িক বিচ্ছিন্ন — কিছু করা লাগে না, ICE reconnect করে */
       }
     };
     return pc;
   }
 
-  /* ===== কল শুরু (কলার) ===== */
   async function startCall(uid, type) {
     if (S.callActive) { toast('ইতিমধ্যে একটা কল চলছে', 'err'); return; }
     var user = findUser(uid);
     if (!user) { toast('ইউজার পাওয়া যায়নি', 'err'); return; }
 
-    S.callActive = true;
-    S.callType = type;
-    S.callPhase = 'calling';
-    S.callTarget = user;
-    S.iAmCaller = true;
-    S.wasConnected = false;
+    S.callActive = true; S.callType = type; S.callPhase = 'calling';
+    S.callTarget = user; S.iAmCaller = true; S.wasConnected = false;
     S.isMuted = false; S.isCamOff = false;
 
     D.callBg.style.backgroundImage = 'url(' + user.avatar + ')';
@@ -751,7 +819,6 @@
     D.callScr.classList.remove('slide-up');
     D.callScr.classList.add('on');
 
-    /* মাইক/ক্যামেরা */
     try {
       S.localStream = await navigator.mediaDevices.getUserMedia({
         audio: true,
@@ -769,7 +836,6 @@
       return;
     }
 
-    /* কল আইডি আগেই বানাই — ICE ক্যান্ডিডেট সাথে সাথে সেভ করতে পারি */
     S.callDocId = 'cl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
     var pc = S.pc = createPC(S.callDocId, 'caller');
 
@@ -778,26 +844,18 @@
       await pc.setLocalDescription(offer);
 
       S.callDocId = await DB.mkCall({
-        callerId: S.user.uid,
-        calleeId: uid,
-        callerName: S.user.name,
-        callerAvatar: S.user.avatar,
-        calleeName: user.name,
-        type: type
+        callerId: S.user.uid, calleeId: uid,
+        callerName: S.user.name, callerAvatar: S.user.avatar,
+        calleeName: user.name, type: type
       }, { type: offer.type, sdp: offer.sdp });
 
       playRing();
 
-      /* উত্তরের জন্য অপেক্ষা */
       S.callUnsub = DB.watchCall(S.callDocId, async function (data) {
         if (data.status === 'rejected') {
-          stopRing();
-          toast('কল কাটা হয়েছে', 'err');
-          endCall(false, true);
+          stopRing(); toast('কল কাটা হয়েছে', 'err'); endCall(false, true);
         } else if (data.status === 'ended' && !S.wasConnected) {
-          stopRing();
-          toast('কেউ ধরেনি', 'err');
-          endCall(false, true);
+          stopRing(); toast('কেউ ধরেনি', 'err'); endCall(false, true);
         } else if (data.answer && !pc.currentRemoteDescription) {
           try {
             await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
@@ -806,21 +864,17 @@
         }
       });
 
-      /* কলির ICE ক্যান্ডিডেট */
       S.candUnsub = DB.onCandidates(S.callDocId, 'callee', function (c) {
         if (S.pc) S.pc.addIceCandidate(new RTCIceCandidate(c)).catch(function () {});
       });
 
-      /* ৪৫ সেকেন্ডে উত্তর না পেলে বাতিল */
       S.outTimeout = setTimeout(function () {
         if (S.callPhase !== 'idle' && !S.wasConnected) {
           DB.updCall(S.callDocId, { status: 'noanswer' });
-          stopRing();
-          toast('কেউ ধরেনি', 'err');
+          stopRing(); toast('কেউ ধরেনি', 'err');
           endCall(true, true);
         }
       }, 45000);
-
     } catch (e) {
       console.error('কল শুরু ব্যর্থ:', e);
       toast('কল শুরু করা যায়নি', 'err');
@@ -838,7 +892,6 @@
     }, 1000);
   }
 
-  /* ===== ইনকামিং কল ===== */
   function handleIncomingCall(call) {
     if (S.callActive || S.callPhase === 'incoming') { DB.updCall(call.id, { status: 'busy' }); return; }
 
@@ -857,7 +910,6 @@
     D.incPop.classList.add('on');
     playRing();
 
-    /* ৪০ সেকেন্ডে না ধরলে মিসড */
     S.incTimeout = setTimeout(function () {
       if (S.callPhase === 'incoming') {
         D.incPop.classList.remove('on');
@@ -869,7 +921,6 @@
     }, 40000);
   }
 
-  /* ===== কল একসেপ্ট (কলি) ===== */
   D.accBtn.addEventListener('click', async function () {
     if (S.callPhase !== 'incoming') return;
     D.incPop.classList.remove('on');
@@ -918,7 +969,6 @@
 
       await DB.updCall(S.callDocId, { status: 'accepted', answer: { type: answer.type, sdp: answer.sdp } });
 
-      /* কলারের ICE ক্যান্ডিডেট */
       S.candUnsub = DB.onCandidates(S.callDocId, 'caller', function (c) {
         if (S.pc) S.pc.addIceCandidate(new RTCIceCandidate(c)).catch(function () {});
       });
@@ -928,7 +978,6 @@
       });
 
       D.callStTxt.textContent = 'সংযোগ হচ্ছে...';
-
     } catch (e) {
       console.error('একসেপ্ট ব্যর্থ:', e);
       toast('কল একসেপ্ট করা যায়নি', 'err');
@@ -949,24 +998,17 @@
     S.callPhase = 'idle'; S.callDocId = null; S.callTarget = null;
   });
 
-  /* ===== কল শেষ ===== */
   function endCall(byRemote, skipLog) {
     var dur = S.wasConnected && S.callStart ? Math.floor((Date.now() - S.callStart) / 1000) : 0;
-
     if (!byRemote && S.callDocId) DB.updCall(S.callDocId, { status: 'ended' });
     if (!skipLog) writeCallLog(S.iAmCaller ? 'out' : 'in', S.wasConnected ? 'completed' : (S.iAmCaller ? 'noanswer' : 'missed'), dur);
-
     stopRing();
     playTone(600, 300, 0.25);
     cleanupPC();
     resetCallUI();
-
-    S.callActive = false;
-    S.callPhase = 'idle';
-    S.callTarget = null;
-    S.callDocId = null;
-    S.wasConnected = false;
-    S.callStart = null;
+    S.callActive = false; S.callPhase = 'idle';
+    S.callTarget = null; S.callDocId = null;
+    S.wasConnected = false; S.callStart = null;
   }
 
   function writeCallLog(dir, status, dur) {
@@ -975,11 +1017,7 @@
       withUid: S.callTarget.uid || S.callTarget.id,
       name: S.callTarget.name || 'অজানা',
       avatar: S.callTarget.avatar || DB.av(S.callTarget.uid || S.callTarget.id),
-      type: S.callType,
-      dir: dir,
-      status: status,
-      dur: dur,
-      ts: Date.now()
+      type: S.callType, dir: dir, status: status, dur: dur, ts: Date.now()
     });
   }
 
@@ -996,10 +1034,7 @@
     if (S.localStream) S.localStream.getVideoTracks().forEach(function (t) { t.enabled = !S.isCamOff; });
     D.pipWrap.classList.toggle('off', S.isCamOff);
   });
-  D.spkBtn.addEventListener('click', function () {
-    D.spkBtn.classList.toggle('off', D.spkBtn.classList.contains('off'));
-    /* স্পিকার মোবাইল ব্রাউজারে সাধারণত অটো */
-  });
+  D.spkBtn.addEventListener('click', function () { D.spkBtn.classList.toggle('off'); });
 
   D.chatCallBtn.addEventListener('click', function () { if (S.chatTarget && S.chatTarget.uid) startCall(S.chatTarget.uid, 'audio'); });
   D.chatVidBtn.addEventListener('click', function () { if (S.chatTarget && S.chatTarget.uid) startCall(S.chatTarget.uid, 'video'); });
