@@ -66,7 +66,35 @@
     D.toast.textContent = m;
     D.toast.className = 'show' + (t ? ' ' + t : '');
     clearTimeout(D.toast._t);
-    D.toast._t = setTimeout(function () { D.toast.className = ''; }, 3500);
+    D.toast._t = setTimeout(function () { D.toast.className = ''; }, 5000);
+  }
+
+  /* ✅ ফিক্স: সব auth এররের আসল কারণ বাংলায় দেখাবে */
+  function authErrMsg(e) {
+    console.error('Auth ত্রুটি:', e);
+    var code = e && e.code ? e.code : '';
+    var map = {
+      'auth/unauthorized-domain': 'এই ডোমেইন Firebase-এ অনুমোদিত নয়! Firebase Console → Authentication → Settings → Authorized domains এ "personal-call.vercel.app" যোগ করুন',
+      'auth/operation-not-allowed': 'Firebase Console → Authentication → Sign-in method এ Phone ও Google প্রোভাইডার চালু করুন',
+      'auth/invalid-app-credential': 'SMS পাঠাতে Blaze (বিলিং) প্ল্যান দরকার। Firebase Console-এ প্রজেক্ট আপগ্রেড করুন',
+      'auth/captcha-check-failed': 'reCAPTCHA ব্যর্থ হয়েছে — পেজ রিফ্রেশ করে আবার চেষ্টা করুন',
+      'auth/invalid-phone-number': 'ভুল ফোন নম্বর ফরম্যাট। যেমন: +8801749799622',
+      'auth/too-many-requests': 'অনেকবার চেষ্টা হয়েছে, কিছুক্ষণ পর আবার চেষ্টা করুন',
+      'auth/quota-exceeded': 'SMS কোটা শেষ, কিছুক্ষণ পর চেষ্টা করুন',
+      'auth/popup-blocked': 'পপআপ ব্লক হয়েছে — ব্রাউজারে পপআপ অনুমতি দিন',
+      'auth/popup-closed-by-user': 'গুগল পপআপ বন্ধ করা হয়েছে',
+      'auth/cancelled-popup-request': 'পপআপ বাতিল হয়েছে, আবার চেষ্টা করুন',
+      'auth/network-request-failed': 'ইন্টারনেট সংযোগ সমস্যা',
+      'auth/invalid-verification-code': 'ভুল ভেরিফিকেশন কোড, আবার চেষ্টা করুন',
+      'auth/code-expired': 'কোডের মেয়াদ শেষ, আবার পাঠান',
+      'auth/user-not-found': 'এই ইমেইলে কোনো অ্যাকাউন্ট নেই',
+      'auth/wrong-password': 'ভুল পাসওয়ার্ড',
+      'auth/invalid-email': 'ভুল ইমেইল ফরম্যাট',
+      'auth/email-already-in-use': 'এই ইমেইল আগে থেকেই ব্যবহৃত',
+      'auth/weak-password': 'পাসওয়ার্ড দুর্বল — কমপক্ষে ৬ অক্ষর দিন',
+      'auth/app-not-authorized': 'API key/ডোমেইন সমস্যা — Firebase Console চেক করুন'
+    };
+    return map[code] || ('ত্রুটি: ' + (code || (e && e.message) || 'অজানা'));
   }
 
   function go(from, to, cls) {
@@ -193,7 +221,7 @@
   /* ফোন OTP পাঠানো */
   D.sendOtpBtn.addEventListener('click', async function () {
     var phone = D.phoneIn.value.trim();
-    if (!phone || phone.length < 7) { toast('সঠিক ফোন নম্বর দিন', 'err'); return; }
+    if (!phone || phone.length < 7) { toast('সঠিক ফোন নম্বর দিন (দেশের কোডসহ, যেমন: +8801XXXXXXXXX)', 'err'); return; }
 
     D.sendOtpBtn.disabled = true;
     D.sendOtpBtn.innerHTML = '<span class="sp"></span>';
@@ -207,17 +235,14 @@
       go(D.phoneScr, D.otpScr);
       startResendTimer();
     } catch (e) {
-      var msg = 'OTP পাঠাতে সমস্যা হয়েছে';
-      if (e.code === 'auth/invalid-phone-number') msg = 'ভুল ফোন নম্বর ফরম্যাট';
-      if (e.code === 'auth/too-many-requests') msg = 'অনেকবার চেষ্টা করেছেন, কিছুক্ষণ পর আবার চেষ্টা করুন';
-      toast(msg, 'err');
+      toast(authErrMsg(e), 'err');
     }
 
     D.sendOtpBtn.disabled = false;
     D.sendOtpBtn.textContent = 'ভেরিফিকেশন কোড পাঠান';
   });
 
-  /* OTP ভেরিফাই — এখানেই বাগ ছিল */
+  /* OTP ভেরিফাই */
   D.verifyOtpBtn.addEventListener('click', async function () {
     var code = getOTP();
     if (code.length !== 6) { toast('৬ সংখ্যার কোড দিন', 'err'); return; }
@@ -230,10 +255,7 @@
       toast('সফলভাবে লগইন হয়েছে', 'ok');
       enterMain();
     } catch (e) {
-      var msg = 'ভেরিফিকেশন ব্যর্থ';
-      if (e.code === 'auth/invalid-verification-code') msg = 'ভুল ভেরিফিকেশন কোড, আবার চেষ্টা করুন';
-      if (e.code === 'auth/code-expired') msg = 'কোডের মেয়াদ শেষ, আবার পাঠান';
-      toast(msg, 'err');
+      toast(authErrMsg(e), 'err');
     }
 
     D.verifyOtpBtn.disabled = false;
@@ -245,8 +267,9 @@
     try {
       S.verificationId = await DB.phoneSendOTP(S.phoneNum);
       startResendTimer();
+      clearOTP();
       toast('কোড পুনরায় পাঠানো হয়েছে', 'ok');
-    } catch (e) { toast('আবার পাঠাতে সমস্যা', 'err'); }
+    } catch (e) { toast(authErrMsg(e), 'err'); }
   });
 
   D.otpBack.addEventListener('click', function () { back(D.otpScr, D.phoneScr); });
@@ -283,28 +306,28 @@
       toast('সফলভাবে লগইন হয়েছে', 'ok');
       enterMain();
     } catch (e) {
-      var msg = 'লগইন ব্যর্থ';
-      if (e.code === 'auth/user-not-found') msg = 'এই ইমেইলে কোনো অ্যাকাউন্ট নেই';
-      if (e.code === 'auth/wrong-password') msg = 'ভুল পাসওয়ার্ড';
-      if (e.code === 'auth/email-already-in-use') msg = 'এই ইমেইল আগে থেকেই ব্যবহৃত';
-      toast(msg, 'err');
+      toast(authErrMsg(e), 'err');
     }
 
     D.emailSubmitBtn.disabled = false;
     D.emailSubmitBtn.textContent = S.isEmailReg ? 'অ্যাকাউন্ট তৈরি করুন' : 'সাইন ইন করুন';
   });
 
-  /* গুগল লগইন */
+  /* গুগল লগইন (ফিক্সড: রিডাইরেক্ট ফলব্যাক হলে null রিটার্ন হয়) */
   D.googleLoginBtn.addEventListener('click', async function () {
     D.googleLoginBtn.disabled = true;
     D.googleLoginBtn.innerHTML = '<span class="sp"></span>';
 
     try {
-      S.user = await DB.googleLogin();
-      toast('সফলভাবে লগইন হয়েছে', 'ok');
-      enterMain();
+      var u = await DB.googleLogin();
+      if (u) {
+        S.user = u;
+        toast('সফলভাবে লগইন হয়েছে', 'ok');
+        enterMain();
+      }
+      /* u == null হলে পেজ Google-এ রিডাইরেক্ট হচ্ছে, ফিরে এলে অটো লগইন হবে */
     } catch (e) {
-      toast('গুগল লগইন ব্যর্থ', 'err');
+      toast(authErrMsg(e), 'err');
     }
 
     D.googleLoginBtn.disabled = false;
@@ -880,8 +903,9 @@
      ================================================================ */
   try {
     DB.init();
+    DB.handleRedirect(); /* গুগল রিডাইরেক্ট থেকে ফেরার এরর ধরতে */
     DB.onAuth(function (user) {
-      if (user) {
+      if (user && !S.user) {
         S.user = user;
         enterMain();
       }
