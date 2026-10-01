@@ -1,14 +1,16 @@
 /* ================================================================
-   firebase.js — সম্পূর্ণ রিয়েল Firebase + ZEGO লজিক
-   কোনো ডেমো নেই, কোনো ফেক নেই
+   firebase.js — রিয়েল Firebase + ZEGO লজিক (ফিক্সড ভার্সন)
+   ফিক্স: ১) reCAPTCHA আলাদা container-এ + প্রতিবার নতুন করে বানানো
+          ২) ফোন নম্বর E.164 নরমালাইজ
+          ৩) গুগল পপআপ ব্লক হলে রিডাইরেক্ট ফলব্যাক
+          ৪) চ্যাট লিস্ট কুয়েরি থেকে orderBy বাদ (index এরর এড়াতে)
    ================================================================ */
 var DB = (function () {
   var _a = null, _d = null, _ok = false;
 
-  /* Firebase ইনিশিয়ালাইজ — কনফিগ না থাকলে র‍্যাখ থ্রো করবে */
   function init() {
     if (_ok) return true;
-    if (!_C.fb.apiKey || !_C.fb.projectId) {
+    if (typeof _C === 'undefined' || !_C.fb || !_C.fb.apiKey || !_C.fb.projectId) {
       throw new Error('Firebase কনফিগারেশন দেওয়া হয়নি। config.js এ আপনার credentials বসান।');
     }
     try {
@@ -23,40 +25,64 @@ var DB = (function () {
     }
   }
 
-  /* অ্যাভাটার */
   function av(id) {
     return 'https://picsum.photos/seed/' + id + '/200/200.jpg';
   }
 
-  /* ===== ফোন অথেনটিকেশন — রিয়েল OTP ফোনে যাবে ===== */
+  /* ===== ফোন OTP পাঠানো (ফিক্সড) ===== */
   async function phoneSendOTP(phone) {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('sendOtpBtn', {
-        size: 'invisible',
-        callback: function () {}
-      });
+    if (!_a) throw new Error('Firebase Auth এখনো রেডি হয়নি');
+
+    /* E.164 নরমালাইজ: স্পেস/ড্যাশ বাদ, শুরুতে + যোগ */
+    phone = String(phone).replace(/[\s\-()]/g, '');
+    if (phone.charAt(0) !== '+') phone = '+' + phone;
+    if (!/^\+\d{7,15}$/.test(phone)) {
+      var fe = new Error('ভুল ফোন নম্বর ফরম্যাট। যেমন: +8801749799622');
+      fe.code = 'auth/invalid-phone-number';
+      throw fe;
     }
-    var prov = new firebase.auth.PhoneAuthProvider();
-    return await prov.verifyPhoneNumber(phone, window.recaptchaVerifier);
+
+    /* আগের reCAPTCHA ব্যর্থ অবস্থায় আটকে থাকতে পারে — ক্লিয়ার করে নতুন বানাও */
+    if (window.recaptchaVerifier) {
+      try { window.recaptchaVerifier.clear(); } catch (e) {}
+      window.recaptchaVerifier = null;
+    }
+
+    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+      size: 'invisible',
+      callback: function () { console.log('reCAPTCHA পাস হয়েছে'); },
+      'expired-callback': function () { console.warn('reCAPTCHA সেশন শেষ'); }
+    });
+
+    try {
+      await window.recaptchaVerifier.render();
+      var prov = new firebase.auth.PhoneAuthProvider(_a);
+      var vid = await prov.verifyPhoneNumber(phone, window.recaptchaVerifier);
+      return vid;
+    } catch (e) {
+      /* ব্যর্থ হলে verifier পরিষ্কার — পরের চেষ্টা যেন ঠিকভাবে কাজ করে */
+      try { window.recaptchaVerifier.clear(); } catch (e2) {}
+      window.recaptchaVerifier = null;
+      throw e;
+    }
   }
 
   async function phoneVerify(vid, code) {
-    var cred = await firebase.auth.PhoneAuthProvider.credential(vid, code);
+    var cred = firebase.auth.PhoneAuthProvider.credential(vid, code);
     var res = await _a.signInWithCredential(cred);
     var doc = await _d.collection('users').doc(res.user.uid).get();
     if (!doc.exists) {
-      /* নতুন ইউজার — ফোন নম্বর দিয়ে রেজিস্টার হলো */
       var n = 'ব্যবহারকারী_' + res.user.uid.substr(0, 5);
       await _d.collection('users').doc(res.user.uid).set({
         name: n,
-        phone: res.user.phoneNumber,
+        phone: res.user.phoneNumber || '',
         email: '',
         avatar: av(res.user.uid),
         online: true,
         lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
-      return { uid: res.user.uid, name: n, phone: res.user.phoneNumber, email: '', avatar: av(res.user.uid), isNew: true };
+      return { uid: res.user.uid, name: n, phone: res.user.phoneNumber || '', email: '', avatar: av(res.user.uid), isNew: true };
     }
     return { uid: res.user.uid, ...doc.data(), isNew: false };
   }
@@ -80,25 +106,52 @@ var DB = (function () {
     return await _gu(c.user);
   }
 
-  /* ===== গুগল লগইন ===== */
+  /* ===== গুগল লগইন (ফিক্সড: মোবাইলে পপআপ ব্লক হলে অটো রিডাইরেক্ট) ===== */
   async function googleLogin() {
+    if (!_a) throw new Error('Firebase Auth এখনো রেডি হয়নি');
     var p = new firebase.auth.GoogleAuthProvider();
     p.addScope('profile');
     p.addScope('email');
-    var r = await _a.signInWithPopup(p);
-    var doc = await _d.collection('users').doc(r.user.uid).get();
+    var r;
+    try {
+      r = await _a.signInWithPopup(p);
+    } catch (e) {
+      if (e.code === 'auth/popup-blocked' ||
+          e.code === 'auth/operation-not-supported-in-this-environment' ||
+          e.code === 'auth/cancelled-popup-request') {
+        await _a.signInWithRedirect(p);
+        return null; /* পেজ রিডাইরেক্ট হবে, ফিরে এলে onAuth দিয়ে অটো লগইন হবে */
+      }
+      throw e;
+    }
+    return await _googleUserDoc(r.user);
+  }
+
+  async function _googleUserDoc(u) {
+    var doc = await _d.collection('users').doc(u.uid).get();
     if (!doc.exists) {
-      var a = r.user.photoURL || av(r.user.uid);
-      await _d.collection('users').doc(r.user.uid).set({
-        name: r.user.displayName || 'ব্যবহারকারী',
-        email: r.user.email || '', phone: r.user.phoneNumber || '',
+      var a = u.photoURL || av(u.uid);
+      var data = {
+        name: u.displayName || 'ব্যবহারকারী',
+        email: u.email || '',
+        phone: u.phoneNumber || '',
         avatar: a, online: true,
         lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      return { uid: r.user.uid, name: r.user.displayName || 'ব্যবহারকারী', email: r.user.email || '', phone: r.user.phoneNumber || '', avatar: a };
+      };
+      await _d.collection('users').doc(u.uid).set(data);
+      return { uid: u.uid, name: data.name, email: data.email, phone: data.phone, avatar: a };
     }
-    return await _gu(r.user);
+    return await _gu(u);
+  }
+
+  /* গুগল রিডাইরেক্ট থেকে ফিরে এলে এরর ধরার জন্য */
+  function handleRedirect() {
+    if (!_a) return;
+    _a.getRedirectResult().catch(function (e) {
+      console.error('Google redirect ত্রুটি:', e);
+      if (typeof toast === 'function') toast('Google লগইন ব্যর্থ: ' + (e.code || e.message), 'err');
+    });
   }
 
   /* ===== প্রোফাইল আপডেট ===== */
@@ -132,7 +185,7 @@ var DB = (function () {
       }, function (err) { console.error('onUsers ত্রুটি:', err); });
   }
 
-  /* ===== চ্যাট আইডি — দুইজনের uid সর্ট করে জয়েন ===== */
+  /* ===== চ্যাট আইডি ===== */
   function chatId(a, b) { return [a, b].sort().join('_'); }
 
   /* ===== রিয়েল মেসেজ পাঠানো ===== */
@@ -155,13 +208,18 @@ var DB = (function () {
       }, function (err) { console.error('onMsgs ত্রুটি:', err); });
   }
 
-  /* ===== চ্যাট লিস্ট — আমার সাথে মেসেজ আছে এমন সব চ্যাট ===== */
+  /* ===== চ্যাট লিস্ট (ফিক্সড: orderBy বাদ — composite index লাগে না, client-side সর্ট) ===== */
   function onChatList(uid, cb) {
     return _d.collection('chats')
       .where('parts', 'array-contains', uid)
-      .orderBy('updated', 'desc')
       .onSnapshot(function (s) {
-        cb(s.docs.map(function (d) { return { id: d.id, ...d.data() }; }));
+        var arr = s.docs.map(function (d) { return { id: d.id, ...d.data() }; });
+        arr.sort(function (x, y) {
+          var tx = x.updated && x.updated.toMillis ? x.updated.toMillis() : 0;
+          var ty = y.updated && y.updated.toMillis ? y.updated.toMillis() : 0;
+          return ty - tx;
+        });
+        cb(arr);
       }, function (err) { console.error('onChatList ত্রুটি:', err); });
   }
 
@@ -253,7 +311,7 @@ var DB = (function () {
 
   /* ===== ZEGO কল ইনিশিয়ালাইজ ===== */
   async function initZego(roomId, userId, userName) {
-    if (!_C.zg.appId || !_C.zg.appSign) return null;
+    if (!_C.zg.appId || !_C.zg.appSign || typeof ZegoExpressEngine === 'undefined') return null;
     try {
       var zg = new ZegoExpressEngine(_C.zg.appId, _C.zg.appSign);
       await zg.loginRoom(roomId, '', { userID: userId, userName: userName });
@@ -271,6 +329,7 @@ var DB = (function () {
     emailReg: emailReg,
     emailLogin: emailLogin,
     googleLogin: googleLogin,
+    handleRedirect: handleRedirect,
     updateProfile: updateProfile,
     logout: logout,
     setOn: setOn,
