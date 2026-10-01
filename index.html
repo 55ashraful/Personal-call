@@ -57,7 +57,6 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .fg input::placeholder{color:var(--wa-text3)}
 .fg input:focus{box-shadow:0 0 0 2px var(--wa-teal)}
 .fg .fi{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:20px;height:20px;fill:var(--wa-text3);pointer-events:none}
-.fg input:focus~.fi{fill:var(--wa-teal)}
 .pbtn{width:100%;padding:13px;border:none;border-radius:var(--radius);background:var(--wa-teal);color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s;margin-top:8px}
 .pbtn:hover{background:var(--wa-teal-dark)}
 .pbtn:disabled{opacity:.5;cursor:not-allowed}
@@ -86,20 +85,19 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .chats-c::-webkit-scrollbar-thumb{background:var(--wa-border);border-radius:4px}
 .chat-row{display:flex;align-items:center;padding:10px 14px;cursor:pointer;transition:background .15s;gap:12px}
 .chat-row:hover{background:rgba(255,255,255,.03)}
-.chat-row:active{background:rgba(255,255,255,.05)}
 .chat-row .av{width:50px;height:50px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--wa-panel)}
 .chat-row .det{flex:1;min-width:0;border-bottom:1px solid rgba(255,255,255,.04);padding-bottom:10px}
 .chat-row .det h4{font-size:15px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
-.chat-row .det h4 .tick{color:var(--wa-tick);font-size:16px}
 .chat-row .det p{font-size:13px;color:var(--wa-text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 .chat-row .meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
 .chat-row .meta .time{font-size:11px;color:var(--wa-text2)}
-.chat-row .meta .badge{background:var(--wa-teal);color:#fff;font-size:11px;font-weight:600;min-width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 5px}
-.unread .det h4,.unread .det p{color:var(--wa-text)!important;font-weight:500}
+.mini-act{width:38px;height:38px;border:none;background:none;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mini-act:hover{background:rgba(255,255,255,.05)}
+.mini-act svg{width:20px;height:20px;fill:var(--wa-teal)}
+.mini-act.red svg{fill:var(--wa-danger)}
 
-.msgs-c{flex:1;overflow-y:auto;padding:6px 14px;display:flex;flex-direction:column;gap:2px;background:var(--wa-bg);background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5c-1 8-3 12-8 18s-12 8-17 12c5 1 10 0 14-3 3-2 6-6 8-10 2 5 5 9 9 11 4 2 9 2 14 0-5-4-11-7-16-13S31 13 30 5z' fill='rgba(255,255,255,0.02)'/%3E%3C/svg%3E")}
+.msgs-c{flex:1;overflow-y:auto;padding:6px 14px;display:flex;flex-direction:column;gap:2px;background:var(--wa-bg)}
 .msgs-c::-webkit-scrollbar{width:4px}
-.msgs-c::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
 .date-sep{text-align:center;margin:10px 0}
 .date-sep span{font-size:11.5px;color:var(--wa-text2);background:rgba(11,20,26,.9);padding:4px 12px;border-radius:6px}
 .msg{max-width:80%;display:flex;flex-direction:column;animation:mi .25s ease}
@@ -111,21 +109,13 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .msg.in .bbl{background:var(--wa-bubble-in);border-top-left-radius:0}
 .msg .mt{font-size:11px;color:var(--wa-text2);margin-top:2px;display:flex;align-items:center;gap:3px}
 .msg.out .mt .tick{font-size:14px;color:var(--wa-tick)}
-.typing-dots{display:inline-flex;gap:3px;padding:4px 0}
-.typing-dots span{width:6px;height:6px;background:var(--wa-text2);border-radius:50%;animation:td 1.2s ease-in-out infinite}
-.typing-dots span:nth-child(2){animation-delay:.2s}
-.typing-dots span:nth-child(3){animation-delay:.4s}
-@keyframes td{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-4px);opacity:1}}
 .chat-bar{display:flex;align-items:flex-end;padding:6px 10px;gap:6px;background:var(--wa-bar);flex-shrink:0}
 .chat-bar .input-wrap{flex:1;display:flex;align-items:flex-end;background:var(--wa-panel);border-radius:24px;padding:6px 14px;min-height:44px;gap:8px}
 .chat-bar textarea{flex:1;border:none;background:none;color:var(--wa-text);font-size:14px;outline:none;resize:none;max-height:100px;line-height:1.4;padding:4px 0;font-family:inherit}
 .chat-bar textarea::placeholder{color:var(--wa-text3)}
-.chat-bar .sbtn{width:42px;height:42px;border-radius:50%;border:none;background:var(--wa-teal);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .2s}
-.chat-bar .sbtn:hover{background:var(--wa-teal-dark)}
+.chat-bar .sbtn{width:42px;height:42px;border-radius:50%;border:none;background:var(--wa-teal);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
 .chat-bar .sbtn:disabled{opacity:.4;cursor:not-allowed}
 .chat-bar .sbtn svg{width:20px;height:20px;fill:#fff}
-.chat-bar .embtn{width:36px;height:36px;border:none;background:none;color:var(--wa-text2);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:50%;flex-shrink:0}
-.chat-bar .embtn svg{width:22px;height:22px;fill:var(--wa-text2)}
 
 #callScr{background:#000;z-index:100}
 .call-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(30px) brightness(.3);transform:scale(1.2)}
@@ -137,17 +127,15 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .call-info .ctimer{font-size:15px;color:var(--wa-teal);margin-top:2px;font-variant-numeric:tabular-nums}
 .call-vid{position:absolute;inset:0;z-index:2}
 .call-vid video{width:100%;height:100%;object-fit:cover}
-.pip{position:absolute;top:60px;right:16px;width:100px;height:140px;border-radius:12px;overflow:hidden;border:2px solid rgba(255,255,255,.2);z-index:8;background:#1a1a1a;cursor:grab}
+.pip{position:absolute;top:60px;right:16px;width:100px;height:140px;border-radius:12px;overflow:hidden;border:2px solid rgba(255,255,255,.2);z-index:8;background:#1a1a1a}
 .pip video{width:100%;height:100%;object-fit:cover}
 .pip.off::after{content:'ক্যামেরা বন্ধ';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--wa-panel);font-size:11px;color:var(--wa-text2)}
 .call-ctrls{position:relative;z-index:10;padding:30px 20px 50px;display:flex;align-items:center;justify-content:center;gap:20px;background:linear-gradient(to top,rgba(0,0,0,.8),transparent)}
 .ccb{width:56px;height:56px;border-radius:50%;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;background:rgba(255,255,255,.12);color:#fff;backdrop-filter:blur(8px)}
 .ccb svg{width:24px;height:24px;fill:#fff}
 .ccb .cl{font-size:9px;margin-top:3px;opacity:.8}
-.ccb:active{transform:scale(.9)}
 .ccb.off{background:var(--wa-danger)}
 .ccb.end{width:64px;height:64px;background:var(--wa-danger)}
-.ccb.end:hover{background:#c80030}
 
 #incPop{position:absolute;inset:0;z-index:200;display:flex;align-items:flex-end;justify-content:center;background:var(--wa-overlay);backdrop-filter:blur(12px);opacity:0;visibility:hidden;transition:all .3s}
 #incPop.on{opacity:1;visibility:visible}
@@ -164,7 +152,6 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .inc-b .cir svg{width:28px;height:28px;fill:#fff}
 .inc-b.acc .cir{background:var(--wa-teal)}
 .inc-b.rej .cir{background:var(--wa-danger)}
-.inc-b:active .cir{transform:scale(.9)}
 .inc-b span:last-child{font-size:11px;color:var(--wa-text2)}
 
 .set-list{flex:1;overflow-y:auto;padding:8px 0}
@@ -177,14 +164,28 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .set-divider{height:8px;background:rgba(0,0,0,.2)}
 .set-header{padding:20px 20px 12px;font-size:13px;color:var(--wa-teal);font-weight:500}
 
-.grp-form{padding:16px 20px;display:flex;flex-direction:column;gap:14px}
-.grp-form input{width:100%;padding:12px 14px;background:var(--wa-panel);border:none;border-radius:var(--radius);color:var(--wa-text);font-size:14px;outline:none}
-.grp-form input:focus{box-shadow:0 0 0 2px var(--wa-teal)}
-.grp-members{max-height:250px;overflow-y:auto}
-.grp-members .gm{display:flex;align-items:center;gap:10px;padding:8px 0}
-.grp-members .gm label{flex:1;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:10px}
-.grp-members .gm input[type=checkbox]{width:18px;height:18px;accent-color:var(--wa-teal)}
-.grp-members .gm img{width:36px;height:36px;border-radius:50%;object-fit:cover}
+/* ===== ডায়ালার (ফোনের মতো) ===== */
+.dial-disp{background:var(--wa-panel);border-radius:var(--radius);padding:16px;text-align:center;margin:16px 14px 4px}
+.dial-disp input{width:100%;background:none;border:none;outline:none;color:var(--wa-text);font-size:24px;text-align:center;font-weight:500;letter-spacing:1px}
+.dial-disp input::placeholder{color:var(--wa-text3);font-size:14px;font-weight:400}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px 40px}
+.key{height:60px;border:none;background:var(--wa-panel);border-radius:50%;font-size:24px;color:var(--wa-text);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.key small{font-size:8px;color:var(--wa-text2);letter-spacing:2px;margin-top:2px}
+.key:active{background:var(--wa-border)}
+.key.wide{background:var(--wa-teal);color:#fff}
+.dial-acts{display:flex;gap:10px;padding:0 14px}
+.dial-acts button{flex:1;padding:12px 4px;border:none;border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;background:var(--wa-panel);color:var(--wa-text)}
+.dial-acts button.pr{background:var(--wa-teal);color:#fff}
+.dial-card{margin:10px 14px;background:var(--wa-panel);border-radius:12px;padding:16px;text-align:center}
+.dial-card img{width:70px;height:70px;border-radius:50%;object-fit:cover;margin-bottom:8px}
+.dial-card h4{font-size:17px;font-weight:500}
+.dial-card p{font-size:13px;color:var(--wa-text2);margin:2px 0 14px}
+.dial-card .dc-btns{display:flex;gap:10px;justify-content:center}
+.dial-card .dc-btns button{flex:1;max-width:110px;padding:11px 4px;border:none;border-radius:var(--radius);background:var(--wa-teal);color:#fff;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+.dial-card .dc-btns button.ghost{background:var(--wa-bar);color:var(--wa-text)}
+.dial-card .dc-btns button svg{width:16px;height:16px;fill:#fff}
+.dial-card .dc-btns button.ghost svg{fill:var(--wa-text)}
+.sec-label{padding:14px 20px 6px;font-size:12px;color:var(--wa-teal);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
 
 #secOverlay{position:fixed;inset:0;z-index:99998;pointer-events:none;display:none}
 #secOverlay.on{display:block}
@@ -208,7 +209,6 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .empty-st p{font-size:14px;line-height:1.6}
 
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
-@supports(padding-top:env(safe-area-inset-top)){.topbar{padding-top:env(safe-area-inset-top)}.call-ctrls{padding-bottom:calc(env(safe-area-inset-bottom)+20px)}.inc-card{padding-bottom:calc(env(safe-area-inset-bottom)+36px)}}
 </style>
 </head>
 <body>
@@ -224,11 +224,10 @@ input,textarea{-webkit-user-select:text;user-select:text}
 <h1>Personal Call</h1>
 <p class="sub">রিয়েল নম্বর দিয়ে রেজিস্টার করুন ও কল ও চ্যাট করুন</p>
 <div class="fg">
-<input type="tel" id="phoneIn" placeholder="আপনার ফোন নম্বর (যেমন: +8801XXXXXXXXX)" maxlength="20" autocomplete="off">
+<input type="tel" id="phoneIn" placeholder="নম্বর (দেশের কোডসহ): +8801XXXXXXXXX" maxlength="20" autocomplete="off">
 <svg class="fi" viewBox="0 0 24 24"><path d="M6.62 10.79a15.053 15.053 0 0 0 6.59 6.59l2.2-2.2a1.003 1.003 0 0 1 1.01-.24c1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.1.31.03.66-.25 1.02l-2.2 2.2z"/></svg>
 </div>
 <button class="pbtn" id="sendOtpBtn">ভেরিফিকেশন কোড পাঠান</button>
-<!-- ✅ ফিক্স: reCAPTCHA এখন বাটনের বাইরে আলাদা hidden container-এ রেন্ডার হবে -->
 <div id="recaptcha-container" style="position:absolute;left:-9999px;top:-9999px"></div>
 <div class="divider">অথবা</div>
 <button class="pbtn gbtn" id="googleLoginBtn">
@@ -293,12 +292,41 @@ Google দিয়ে সাইন ইন করুন
 <div class="tabs">
 <button class="tab on" data-tab="chats">চ্যাট</button>
 <button class="tab" data-tab="calls">কল</button>
-<button class="tab" data-tab="groups">গ্রুপ</button>
+<button class="tab" data-tab="contacts">কন্টাক্ট</button>
 </div>
 <div id="tabChats" class="chats-c" style="flex:1;overflow-y:auto"></div>
-<div id="tabCalls" style="flex:1;overflow-y:auto;display:none;padding:20px"></div>
-<div id="tabGroups" style="flex:1;overflow-y:auto;display:none"></div>
-<button class="fab" id="newChatFab" aria-label="নতুন গ্রুপ"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45v1.5h6v-2c0-2.66-4.03-3-7-3z"/></svg></button>
+<div id="tabCalls" style="flex:1;overflow-y:auto;display:none"></div>
+<div id="tabContacts" style="flex:1;overflow-y:auto;display:none"></div>
+<button class="fab" id="dialFab" aria-label="ডায়াল"><svg viewBox="0 0 24 24"><path d="M6.62 10.79a15.053 15.053 0 0 0 6.59 6.59l2.2-2.2a1.003 1.003 0 0 1 1.01-.24c1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.1.31.03.66-.25 1.02l-2.2 2.2z"/></svg></button>
+</section>
+
+<!-- ডায়ালার -->
+<section id="dialScr" class="scr from-l" aria-label="ডায়ালার">
+<div class="topbar">
+<button class="back" id="dialBack"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+<div class="info"><h3>নম্বর ডায়াল করুন</h3><p>যেভাবে ফোনে ডায়াল করেন</p></div>
+</div>
+<div style="flex:1;overflow-y:auto;display:flex;flex-direction:column">
+<div class="dial-disp"><input type="tel" id="dialNumIn" placeholder="নম্বর লিখুন: +8801XXXXXXXXX" maxlength="20" inputmode="tel" autocomplete="off"></div>
+<div class="keypad" id="keypad">
+<button class="key" data-k="1">1</button>
+<button class="key" data-k="2">2<small>ABC</small></button>
+<button class="key" data-k="3">3<small>DEF</small></button>
+<button class="key" data-k="4">4<small>GHI</small></button>
+<button class="key" data-k="5">5<small>JKL</small></button>
+<button class="key" data-k="6">6<small>MNO</small></button>
+<button class="key" data-k="7">7<small>PQRS</small></button>
+<button class="key" data-k="8">8<small>TUV</small></button>
+<button class="key" data-k="9">9<small>WXYZ</small></button>
+<button class="key" data-k="+">+</button>
+<button class="key" data-k="0">0</button>
+<button class="key" data-k="del">⌫</button>
+</div>
+<div class="dial-acts">
+<button id="dialSearchBtn" class="pr">🔍 খুঁজুন / কল</button>
+</div>
+<div id="dialResult"></div>
+</div>
 </section>
 
 <!-- চ্যাট -->
@@ -314,7 +342,6 @@ Google দিয়ে সাইন ইন করুন
 </div>
 <div class="msgs-c" id="msgsC"></div>
 <div class="chat-bar">
-<button class="embtn" aria-label="ইমোজি"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg></button>
 <div class="input-wrap">
 <textarea id="chatTa" placeholder="মেসেজ লিখুন..." rows="1"></textarea>
 <button class="sbtn" id="sendMsgBtn" disabled aria-label="পাঠাও"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
@@ -329,20 +356,6 @@ Google দিয়ে সাইন ইন করুন
 <div class="info"><h3>সেটিংস</h3></div>
 </div>
 <div class="set-list" id="setList"></div>
-</section>
-
-<!-- গ্রুপ তৈরি -->
-<section id="grpScr" class="scr from-l" aria-label="গ্রুপ তৈরি">
-<div class="topbar">
-<button class="back" id="grpBackBtn"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
-<div class="info"><h3>নতুন গ্রুপ</h3></div>
-</div>
-<div class="grp-form" id="grpForm">
-<input type="text" id="grpNameIn" placeholder="গ্রুপের নাম">
-<div style="font-size:13px;color:var(--wa-text2);margin-top:4px">সদস্য নির্বাচন করুন:</div>
-<div class="grp-members" id="grpMembers"></div>
-<button class="pbtn" id="createGrpBtn" style="margin-top:16px">গ্রুপ তৈরি করুন</button>
-</div>
 </section>
 
 <!-- কল -->
@@ -361,14 +374,14 @@ Google দিয়ে সাইন ইন করুন
 <div class="call-info" id="callInfo">
 <img class="cav" id="callAv" src="" alt="">
 <h2 id="callNameH">-</h2>
-<div class="cst" id="callStDiv"><span id="callStTxt">কল করা হচ্ছে</span></div>
+<div class="cst"><span id="callStTxt">কল করা হচ্ছে</span></div>
 <div class="ctimer" id="callTimer" style="display:none">00:00</div>
 </div>
-<div class="call-ctrls" id="callCtrls">
-<button class="ccb" id="muteBtn" aria-label="মিউট"><svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg><span class="cl">মিউট</span></button>
-<button class="ccb" id="camBtn" aria-label="ক্যামেরা"><svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg><span class="cl">ক্যামেরা</span></button>
-<button class="ccb" id="spkBtn" aria-label="স্পিকার"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg><span class="cl">স্পিকার</span></button>
-<button class="ccb end" id="endBtn" aria-label="কল শেষ"><svg viewBox="0 0 24 24"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.956.956 0 0 1-.29-.7c0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28a11.27 11.27 0 0 0-2.67-1.85.996.996 0 0 1-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/></svg></button>
+<div class="call-ctrls">
+<button class="ccb" id="muteBtn"><svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg><span class="cl">মিউট</span></button>
+<button class="ccb" id="camBtn"><svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg><span class="cl">ক্যামেরা</span></button>
+<button class="ccb" id="spkBtn"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg><span class="cl">স্পিকার</span></button>
+<button class="ccb end" id="endBtn"><svg viewBox="0 0 24 24"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.956.956 0 0 1-.29-.7c0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28a11.27 11.27 0 0 0-2.67-1.85.996.996 0 0 1-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/></svg></button>
 </div>
 </section>
 
@@ -385,12 +398,14 @@ Google দিয়ে সাইন ইন করুন
 </div>
 </div>
 </div>
+
+<!-- রিমোট অডিও (অডিও কলের জন্য) -->
+<audio id="remAudio" autoplay style="display:none"></audio>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/zego-express-engine-webrtc@2.5.4006/dist/index.min.js"></script>
 <script src="config.js"></script>
 <script src="firebase.js"></script>
 <script src="app.js"></script>
