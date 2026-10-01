@@ -1,6 +1,7 @@
 /* ================================================================
    firebase.js — Auth + Firestore সিগন্যালিং + কন্টাক্ট + কল হিস্ট্রি
-   রিয়েল WebRTC কলের সব সিগন্যালিং এখানে
+   ফিক্স: reCAPTCHA "already been rendered" এরর —
+   প্রতিবার নতুন container element বানানো হয়, তাই এরর আর আসবে না
    ================================================================ */
 var DB = (function () {
   var _a = null, _d = null, _ok = false;
@@ -26,7 +27,6 @@ var DB = (function () {
     return 'https://picsum.photos/seed/' + id + '/200/200.jpg';
   }
 
-  /* ফোন নম্বর E.164 নরমালাইজ — দুই জায়গায় একই রকম সেভ/সার্চ হয় */
   function normPhone(p) {
     p = String(p || '').replace(/[\s\-().]/g, '');
     if (p && p.charAt(0) !== '+') p = '+' + p;
@@ -34,7 +34,26 @@ var DB = (function () {
   }
 
   /* ================================================================
-     ফোন OTP — signInWithPhoneNumber (সবচেয়ে নির্ভরযোগ্য পদ্ধতি)
+     ★ ফিক্সড: reCAPTCHA — প্রতিবার সম্পূর্ণ নতুন container ★
+     ================================================================ */
+  function freshRecaptchaContainer() {
+    /* পুরনো verifier আছে সেটা বন্ধ করো */
+    if (window.recaptchaVerifier) {
+      try { window.recaptchaVerifier.clear(); } catch (e) {}
+      window.recaptchaVerifier = null;
+    }
+    /* পুরনো container element পুরোপুরি মুছে ফেলো — এতে ভেতরের
+       পুরনো reCAPTCHA iframe-ও চলে যায়, "already rendered" এরর আর হয় না */
+    var old = document.getElementById('recaptcha-container');
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    /* একদম নতুন container বানাও */
+    var fresh = document.createElement('div');
+    fresh.id = 'recaptcha-container';
+    document.body.appendChild(fresh);
+  }
+
+  /* ================================================================
+     ফোন OTP — signInWithPhoneNumber
      ================================================================ */
   async function phoneSendOTP(phone) {
     if (!_a) throw new Error('Firebase Auth রেডি নয়');
@@ -44,25 +63,26 @@ var DB = (function () {
       fe.code = 'auth/invalid-phone-number';
       throw fe;
     }
-    /* আগের verifier পরিষ্কার */
-    if (window.recaptchaVerifier) {
-      try { window.recaptchaVerifier.clear(); } catch (e) {}
-      window.recaptchaVerifier = null;
-    }
+
+    freshRecaptchaContainer(); /* ★ প্রতিবার নতুন container */
+
     window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
       size: 'invisible',
       callback: function () {},
       'expired-callback': function () {}
     });
+
     try {
       await window.recaptchaVerifier.render();
-      /* signInWithPhoneNumber → confirmationResult রাখবে, confirm(code) দিয়ে ভেরিফাই */
       var cf = await _a.signInWithPhoneNumber(phone, window.recaptchaVerifier);
       window._confirmationResult = cf;
       return cf.verificationId;
     } catch (e) {
+      /* ব্যর্থ হলেও পরিষ্কার — পরের চেষ্টা যেন ঠিকভাবে হয় */
       try { window.recaptchaVerifier.clear(); } catch (e2) {}
       window.recaptchaVerifier = null;
+      var old = document.getElementById('recaptcha-container');
+      if (old && old.parentNode) old.parentNode.removeChild(old);
       console.error('OTP পাঠানো ত্রুটি:', e);
       throw e;
     }
@@ -177,7 +197,6 @@ var DB = (function () {
       }, function (err) { console.error('onUsers:', err); });
   }
 
-  /* ===== নম্বর দিয়ে ইউজার খোঁজা (ডায়ালারের জন্য) ===== */
   async function findByPhone(phone) {
     phone = normPhone(phone);
     if (!/^\+\d{8,15}$/.test(phone)) return null;
@@ -187,7 +206,6 @@ var DB = (function () {
     return { id: d.id, ...d.data() };
   }
 
-  /* ===== কন্টাক্ট (WhatsApp-এর মতো সেভ) ===== */
   async function addContact(uid, contact) {
     await _d.collection('users').doc(uid).collection('contacts').doc(contact.id).set({
       uid: contact.id,
@@ -209,7 +227,6 @@ var DB = (function () {
       }, function (err) { console.error('onContacts:', err); });
   }
 
-  /* ===== চ্যাট ===== */
   function chatId(a, b) { return [a, b].sort().join('_'); }
 
   async function sendMsg(cid, m) {
@@ -258,8 +275,6 @@ var DB = (function () {
 
   /* ================================================================
      রিয়েল WebRTC কল সিগন্যালিং
-     calls/{id} = {callerId, calleeId, type, status, offer:{type,sdp}, answer:{type,sdp}}
-     calls/{id}/cands_caller  ও  cands_callee — ICE ক্যান্ডিডেট
      ================================================================ */
   async function mkCall(data, offer) {
     if (!_d) return null;
@@ -316,7 +331,6 @@ var DB = (function () {
       }, function (err) { console.error('onIncCall:', err); });
   }
 
-  /* ===== কল হিস্ট্রি ===== */
   async function addCallLog(uid, log) {
     if (!_d || !uid) return;
     try { await _d.collection('users').doc(uid).collection('callHistory').add(log); } catch (e) {}
@@ -330,7 +344,6 @@ var DB = (function () {
       }, function (err) { console.error('onCallHistory:', err); });
   }
 
-  /* ===== অটো লগইন ===== */
   function onAuth(cb) {
     if (!_a) return;
     _a.onAuthStateChanged(async function (u) {
