@@ -15,10 +15,11 @@ var _C = (function () {
      serviceId  → Email Services (Gmail কানেক্ট করলে পাবেন)
      templateId → Email Templates (টেমপ্লেটে To Email = {{to_email}} দিন) */
   var _e = {
-    publicKey:  "YOUR_PUBLIC_KEY",
-    serviceId:  "YOUR_SERVICE_ID",
-    templateId: "YOUR_TEMPLATE_ID"
+    publicKey:  "k0FNPFrYm0Mo4xkK7",
+    serviceId:  "service_6iktqcc",
+    templateId: "template_lueg2zn"
   };
+  
 
   return {
     get fb() {
