@@ -1,6 +1,6 @@
 /* ================================================================
-   firebase.js — Auth + Firestore + ImgBB আপলোড + WebRTC সিগন্যালিং
-   নতুন: uploadImage() — চ্যাটে ছবি পাঠানোর জন্য (প্রোফাইল ছবিও এটা দিয়েই)
+   firebase.js — Auth + Firestore + ImgBB + WebRTC সিগন্যালিং
+   ফিক্স: ডিফল্ট অ্যাভাটার এখন নামের অক্ষরের সবুজ ছবি (র‍্যান্ডম নয়)
    ================================================================ */
 var DB = (function () {
   var _a = null, _d = null, _ok = false;
@@ -22,7 +22,14 @@ var DB = (function () {
     }
   }
 
-  function av(id) { return 'https://picsum.photos/seed/' + id + '/200/200.jpg'; }
+  /* ★ নাম থেকে সবুজ ইনিশিয়াল অ্যাভাটার (WhatsApp-স্টাইল) ★ */
+  function uiAvatar(name) {
+    var n = String(name || '').trim();
+    if (!n) n = 'U';
+    return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(n) + '&background=00a884&color=fff&size=200&bold=true';
+  }
+
+  function av(id) { return uiAvatar('U'); }
 
   function normPhone(p) {
     p = String(p || '').replace(/[\s\-().]/g, '');
@@ -30,12 +37,7 @@ var DB = (function () {
     return p;
   }
 
-  /* ================================================================
-     ★ ImgBB ছবি আপলোড (সাইজ প্যারামিটারসহ) ★
-     ১) ছবি canvas দিয়ে ছোট করা হয় (দ্রুত + কম ডাটা)
-     ২) base64 করে ImgBB API-তে পাঠানো
-     ৩) হোস্ট করা URL রিটার্ন
-     ================================================================ */
+  /* ===== ImgBB ছবি আপলোড ===== */
   function resizeImage(file, maxSize) {
     return new Promise(function (res, rej) {
       var img = new Image();
@@ -66,9 +68,6 @@ var DB = (function () {
     });
   }
 
-  /* ★ সাধারণ ছবি আপলোড — maxSize দিয়ে ঠিক করা যায়
-     চ্যাটের ছবি: 1280 (বড়, পরিষ্কার দেখা যায়)
-     প্রোফাইল ছবি: 512 (ছোট, দ্রুত) */
   async function uploadImage(file, maxSize) {
     if (!_C.imgbb || !_C.imgbb.apiKey) {
       throw new Error('ImgBB API key নেই — config.js ঠিক করুন');
@@ -86,14 +85,11 @@ var DB = (function () {
     throw new Error('ছবি আপলোড ব্যর্থ — আবার চেষ্টা করুন');
   }
 
-  /* প্রোফাইল ছবি — uploadImage এর ছোট সংস্করণ */
   async function uploadAvatar(file) {
     return uploadImage(file, 512);
   }
 
-  /* ================================================================
-     রেজিস্ট্রেশন (ইমেইল ভেরিফাই হওয়ার পর)
-     ================================================================ */
+  /* ===== রেজিস্ট্রেশন ===== */
   async function phoneExists(phone) {
     var s = await _d.collection('users').where('phone', '==', normPhone(phone)).limit(1).get();
     return !s.empty;
@@ -106,12 +102,12 @@ var DB = (function () {
       name: name,
       phone: normPhone(phone),
       email: email,
-      avatar: av(c.user.uid),
+      avatar: uiAvatar(name),
       online: true,
       lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    return { uid: c.user.uid, name: name, phone: normPhone(phone), email: email, avatar: av(c.user.uid), isNew: true };
+    return { uid: c.user.uid, name: name, phone: normPhone(phone), email: email, avatar: uiAvatar(name), isNew: true };
   }
 
   async function emailLogin(email, pass) {
@@ -146,7 +142,6 @@ var DB = (function () {
       }, function (err) { console.error('onUsers:', err); });
   }
 
-  /* নম্বর দিয়ে ইউজার খোঁজা (ডায়ালারের জন্য) */
   async function findByPhone(phone) {
     phone = normPhone(phone);
     if (!/^\+\d{8,15}$/.test(phone)) return null;
@@ -162,7 +157,7 @@ var DB = (function () {
       uid: contact.id,
       name: contact.name || 'কন্টাক্ট',
       phone: contact.phone || '',
-      avatar: contact.avatar || av(contact.id),
+      avatar: contact.avatar || uiAvatar(contact.name),
       addedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
   }
@@ -225,11 +220,7 @@ var DB = (function () {
       }, function () {});
   }
 
-  /* ================================================================
-     রিয়েল WebRTC কল সিগন্যালিং
-     calls/{id} = {callerId, calleeId, type, status, offer, answer}
-     calls/{id}/cands_caller ও cands_callee — ICE ক্যান্ডিডেট
-     ================================================================ */
+  /* ===== WebRTC কল সিগন্যালিং ===== */
   async function mkCall(data, offer) {
     if (!_d) return null;
     var id = 'cl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
@@ -277,7 +268,6 @@ var DB = (function () {
       }, function (err) { console.error('onIncCall:', err); });
   }
 
-  /* ===== কল হিস্ট্রি ===== */
   async function addCallLog(uid, log) {
     if (!_d || !uid) return;
     try { await _d.collection('users').doc(uid).collection('callHistory').add(log); } catch (e) {}
@@ -291,7 +281,6 @@ var DB = (function () {
       }, function (err) { console.error('onCallHistory:', err); });
   }
 
-  /* ===== অটো লগইন চেক ===== */
   function onAuth(cb) {
     if (!_a) return;
     _a.onAuthStateChanged(async function (u) {
@@ -304,13 +293,15 @@ var DB = (function () {
   async function _gu(u) {
     var d = await _d.collection('users').doc(u.uid).get();
     if (d.exists) return { uid: u.uid, ...d.data() };
-    return { uid: u.uid, name: u.displayName || 'ব্যবহারকারী', email: u.email || '', phone: u.phoneNumber || '', avatar: av(u.uid) };
+    var nm = u.displayName || 'ব্যবহারকারী';
+    return { uid: u.uid, name: nm, email: u.email || '', phone: u.phoneNumber || '', avatar: uiAvatar(nm) };
   }
 
   return {
     init: init,
     normPhone: normPhone,
     av: av,
+    uiAvatar: uiAvatar,
     uploadImage: uploadImage,
     uploadAvatar: uploadAvatar,
     phoneExists: phoneExists,
