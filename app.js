@@ -140,6 +140,12 @@
     requestAnimationFrame(function () { to.classList.add('on'); });
   }
 
+  /* ★ ফিক্স: সব স্ক্রিন একসাথে বন্ধ করার ফাংশন —
+     এতে OTP/লগইন স্ক্রিন মূল স্ক্রিনের উপরে আটকে থাকবে না ★ */
+  function hideAllScreens() {
+    qa('.scr').forEach(function (s) { s.classList.remove('on', 'from-l', 'slide-up'); });
+  }
+
   function fmtTime(s) { return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
   function fmtDate(ts) {
     var d = new Date(ts), today = new Date();
@@ -276,7 +282,6 @@
     S.emailCode = String(Math.floor(100000 + Math.random() * 900000));
     S.codeExp = Date.now() + 10 * 60 * 1000;
 
-    /* টেমপ্লেট যে ভেরিয়েবলই চাক — সব নামে ডাটা পাঠানো হচ্ছে */
     var params = {
       to_email: S.pendingReg.email,
       email: S.pendingReg.email,
@@ -398,6 +403,12 @@
 
   /* ============ মূল স্ক্রিন ============ */
   function enterMain() {
+    /* ★ ফিক্স: আগে সব স্ক্রিন বন্ধ — OTP/লগইন স্ক্রিন ওপরে জমে থাকবে না ★ */
+    hideAllScreens();
+    clearInterval(S.resendTimer);
+    D.resendBtn.disabled = true;
+    clearOTP();
+
     enableSec();
     DB.setOn(S.user.uid);
 
@@ -416,7 +427,7 @@
     });
     S.unsubCalls = DB.onIncCall(S.user.uid, handleIncomingCall);
 
-    go(D.phoneScr, D.mainScr);
+    requestAnimationFrame(function () { D.mainScr.classList.add('on'); });
   }
 
   var CALL_SVG = '<svg viewBox="0 0 24 24"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg>';
@@ -716,7 +727,15 @@
         await DB.logout(S.user.uid);
         S.user = null; S.chatMsgs = {}; S.chatList = []; S.contacts = []; S.callHistory = [];
         disableSec();
-        back(D.setScr, D.phoneScr);
+
+        /* ★ ফিক্স: লগআউটেও সব স্ক্রিন বন্ধ করে রেজিস্ট্রেশন স্ক্রিন খোলা ★ */
+        hideAllScreens();
+        clearInterval(S.resendTimer);
+        D.nameIn.value = ''; D.phoneIn.value = '';
+        D.regEmailIn.value = ''; D.regPassIn.value = '';
+        D.loginEmailIn.value = ''; D.loginPassIn.value = '';
+        requestAnimationFrame(function () { D.phoneScr.classList.add('on'); });
+
         toast('লগআউট হয়েছে', 'ok');
       } catch (e) { toast('লগআউট ব্যর্থ', 'err'); }
     });
@@ -1046,7 +1065,6 @@
   try {
     DB.init();
 
-    /* ★ EmailJS init — অ্যাপ শুরুতেই ★ */
     if (typeof emailjs !== 'undefined' && _C.email && _C.email.publicKey) {
       emailjs.init({ publicKey: _C.email.publicKey });
     }
