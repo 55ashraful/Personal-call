@@ -1,3 +1,7 @@
+/* ================================================================
+   firebase.js — Auth + Firestore + ImgBB আপলোড + WebRTC সিগন্যালিং
+   নতুন: uploadImage() — চ্যাটে ছবি পাঠানোর জন্য (প্রোফাইল ছবিও এটা দিয়েই)
+   ================================================================ */
 var DB = (function () {
   var _a = null, _d = null, _ok = false;
 
@@ -26,7 +30,12 @@ var DB = (function () {
     return p;
   }
 
-  /* ===== ImgBB ছবি আপলোড ===== */
+  /* ================================================================
+     ★ ImgBB ছবি আপলোড (সাইজ প্যারামিটারসহ) ★
+     ১) ছবি canvas দিয়ে ছোট করা হয় (দ্রুত + কম ডাটা)
+     ২) base64 করে ImgBB API-তে পাঠানো
+     ৩) হোস্ট করা URL রিটার্ন
+     ================================================================ */
   function resizeImage(file, maxSize) {
     return new Promise(function (res, rej) {
       var img = new Image();
@@ -57,11 +66,14 @@ var DB = (function () {
     });
   }
 
-  async function uploadAvatar(file) {
+  /* ★ সাধারণ ছবি আপলোড — maxSize দিয়ে ঠিক করা যায়
+     চ্যাটের ছবি: 1280 (বড়, পরিষ্কার দেখা যায়)
+     প্রোফাইল ছবি: 512 (ছোট, দ্রুত) */
+  async function uploadImage(file, maxSize) {
     if (!_C.imgbb || !_C.imgbb.apiKey) {
       throw new Error('ImgBB API key নেই — config.js ঠিক করুন');
     }
-    var blob = await resizeImage(file, 512);
+    var blob = await resizeImage(file, maxSize || 1280);
     var b64 = await blobToBase64(blob);
     var fd = new FormData();
     fd.append('key', _C.imgbb.apiKey);
@@ -74,7 +86,14 @@ var DB = (function () {
     throw new Error('ছবি আপলোড ব্যর্থ — আবার চেষ্টা করুন');
   }
 
-  /* ===== রেজিস্ট্রেশন ===== */
+  /* প্রোফাইল ছবি — uploadImage এর ছোট সংস্করণ */
+  async function uploadAvatar(file) {
+    return uploadImage(file, 512);
+  }
+
+  /* ================================================================
+     রেজিস্ট্রেশন (ইমেইল ভেরিফাই হওয়ার পর)
+     ================================================================ */
   async function phoneExists(phone) {
     var s = await _d.collection('users').where('phone', '==', normPhone(phone)).limit(1).get();
     return !s.empty;
@@ -127,6 +146,7 @@ var DB = (function () {
       }, function (err) { console.error('onUsers:', err); });
   }
 
+  /* নম্বর দিয়ে ইউজার খোঁজা (ডায়ালারের জন্য) */
   async function findByPhone(phone) {
     phone = normPhone(phone);
     if (!/^\+\d{8,15}$/.test(phone)) return null;
@@ -136,6 +156,7 @@ var DB = (function () {
     return { id: d.id, ...d.data() };
   }
 
+  /* ===== কন্টাক্ট ===== */
   async function addContact(uid, contact) {
     await _d.collection('users').doc(uid).collection('contacts').doc(contact.id).set({
       uid: contact.id,
@@ -157,6 +178,7 @@ var DB = (function () {
       }, function (err) { console.error('onContacts:', err); });
   }
 
+  /* ===== চ্যাট ===== */
   function chatId(a, b) { return [a, b].sort().join('_'); }
 
   async function sendMsg(cid, m) {
@@ -203,7 +225,11 @@ var DB = (function () {
       }, function () {});
   }
 
-  /* ===== WebRTC কল সিগন্যালিং ===== */
+  /* ================================================================
+     রিয়েল WebRTC কল সিগন্যালিং
+     calls/{id} = {callerId, calleeId, type, status, offer, answer}
+     calls/{id}/cands_caller ও cands_callee — ICE ক্যান্ডিডেট
+     ================================================================ */
   async function mkCall(data, offer) {
     if (!_d) return null;
     var id = 'cl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
@@ -251,6 +277,7 @@ var DB = (function () {
       }, function (err) { console.error('onIncCall:', err); });
   }
 
+  /* ===== কল হিস্ট্রি ===== */
   async function addCallLog(uid, log) {
     if (!_d || !uid) return;
     try { await _d.collection('users').doc(uid).collection('callHistory').add(log); } catch (e) {}
@@ -264,6 +291,7 @@ var DB = (function () {
       }, function (err) { console.error('onCallHistory:', err); });
   }
 
+  /* ===== অটো লগইন চেক ===== */
   function onAuth(cb) {
     if (!_a) return;
     _a.onAuthStateChanged(async function (u) {
@@ -280,20 +308,38 @@ var DB = (function () {
   }
 
   return {
-    init: init, normPhone: normPhone, av: av,
+    init: init,
+    normPhone: normPhone,
+    av: av,
+    uploadImage: uploadImage,
     uploadAvatar: uploadAvatar,
     phoneExists: phoneExists,
     registerAccount: registerAccount,
     emailLogin: emailLogin,
     updateProfile: updateProfile,
-    logout: logout, setOn: setOn, setOff: setOff,
-    onUsers: onUsers, findByPhone: findByPhone,
-    addContact: addContact, removeContact: removeContact, onContacts: onContacts,
-    onChatList: onChatList, chatId: chatId, sendMsg: sendMsg, onMsgs: onMsgs,
-    setTyping: setTyping, clearTyping: clearTyping, onTyping: onTyping,
-    mkCall: mkCall, watchCall: watchCall, updCall: updCall,
-    addCandidate: addCandidate, onCandidates: onCandidates,
-    onIncCall: onIncCall, addCallLog: addCallLog, onCallHistory: onCallHistory,
+    logout: logout,
+    setOn: setOn,
+    setOff: setOff,
+    onUsers: onUsers,
+    findByPhone: findByPhone,
+    addContact: addContact,
+    removeContact: removeContact,
+    onContacts: onContacts,
+    onChatList: onChatList,
+    chatId: chatId,
+    sendMsg: sendMsg,
+    onMsgs: onMsgs,
+    setTyping: setTyping,
+    clearTyping: clearTyping,
+    onTyping: onTyping,
+    mkCall: mkCall,
+    watchCall: watchCall,
+    updCall: updCall,
+    addCandidate: addCandidate,
+    onCandidates: onCandidates,
+    onIncCall: onIncCall,
+    addCallLog: addCallLog,
+    onCallHistory: onCallHistory,
     onAuth: onAuth,
     get auth() { return _a; },
     get db() { return _d; },
