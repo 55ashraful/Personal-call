@@ -49,15 +49,17 @@
     chatTarget: null, chatUnsub: null, typingUnsub: null, typingTimeout: null,
     chatListUnsub: null, contactsUnsub: null, historyUnsub: null,
     unsubUsers: null, unsubCalls: null,
-    ccCountry: null,
-    pendingReg: null,
-    emailCode: null, codeExp: 0,
-    resendTimer: null, resendSec: 60,
+    ccCountry: null, pendingReg: null,
+    emailCode: null, codeExp: 0, resendTimer: null, resendSec: 60,
     callActive: false, callType: 'video', callPhase: 'idle',
     callTarget: null, callDocId: null, iAmCaller: false, wasConnected: false,
     pc: null, callUnsub: null, candUnsub: null, outTimeout: null, incTimeout: null,
     isMuted: false, isCamOff: false, callStart: null, callTimerIv: null,
-    localStream: null, ringCtx: null, ringIv: null
+    localStream: null, ringCtx: null, ringIv: null,
+    /* ★ ভয়েস রেকর্ডিং ★ */
+    mediaRecorder: null, recChunks: [], recStream: null, recMime: '',
+    recStart: 0, recTimerIv: null,
+    voiceSeq: 0, voiceMap: {}, playingAudio: null, playingBtn: null
   };
 
   var RTC_CFG = {
@@ -91,13 +93,16 @@
     chatAv: q('#chatAv'), chatNameH: q('#chatNameH'), chatStatusP: q('#chatStatusP'),
     chatBackBtn: q('#chatBackBtn'), chatCallBtn: q('#chatCallBtn'), chatVidBtn: q('#chatVidBtn'),
     msgsC: q('#msgsC'), chatTa: q('#chatTa'), sendMsgBtn: q('#sendMsgBtn'),
+    attachBtn: q('#attachBtn'), imgInput: q('#imgInput'), micBtn: q('#micBtn'),
+    recBar: q('#recBar'), recTime: q('#recTime'), recCancel: q('#recCancel'), recSend: q('#recSend'),
     setBackBtn: q('#setBackBtn'), setList: q('#setList'), setAvInput: q('#setAvInput'),
     callBg: q('#callBg'), callVid: q('#callVid'), remVid: q('#remVid'), locVid: q('#locVid'), pipWrap: q('#pipWrap'),
     remAudio: q('#remAudio'),
     callInfo: q('#callInfo'), callAv: q('#callAv'), callNameH: q('#callNameH'), callStTxt: q('#callStTxt'), callTimer: q('#callTimer'), ringCircles: q('#ringCircles'),
     muteBtn: q('#muteBtn'), camBtn: q('#camBtn'), spkBtn: q('#spkBtn'), endBtn: q('#endBtn'),
     incAv: q('#incAv'), incName: q('#incName'), incType: q('#incType'), accBtn: q('#accBtn'), accIco: q('#accIco'), rejBtn: q('#rejBtn'),
-    searchBtn: q('#searchBtn'), menuBtn: q('#menuBtn')
+    searchBtn: q('#searchBtn'), menuBtn: q('#menuBtn'),
+    imgViewer: q('#imgViewer'), imgViewerImg: q('#imgViewerImg'), imgViewerClose: q('#imgViewerClose')
   };
 
   function toast(m, t) {
@@ -139,9 +144,6 @@
     to.classList.add('from-l');
     requestAnimationFrame(function () { to.classList.add('on'); });
   }
-
-  /* ★ ফিক্স: সব স্ক্রিন একসাথে বন্ধ করার ফাংশন —
-     এতে OTP/লগইন স্ক্রিন মূল স্ক্রিনের উপরে আটকে থাকবে না ★ */
   function hideAllScreens() {
     qa('.scr').forEach(function (s) { s.classList.remove('on', 'from-l', 'slide-up'); });
   }
@@ -264,7 +266,7 @@
   D.ccClose.addEventListener('click', function () { D.ccOv.classList.remove('on'); });
   D.ccSearchIn.addEventListener('input', function () { renderCountryList(D.ccSearchIn.value); });
 
-  /* ============ EmailJS — ইমেইলে কোড ============ */
+  /* ============ EmailJS ============ */
   function emailJsReady() {
     return typeof emailjs !== 'undefined' && _C.email && _C.email.publicKey &&
       _C.email.serviceId && _C.email.templateId &&
@@ -328,7 +330,6 @@
       }
 
       S.pendingReg = { name: name, phone: full, email: email, pass: pass };
-
       toast('ইমেইল পাঠানো হচ্ছে...', 'ok');
       await sendCodeViaEmail();
 
@@ -403,7 +404,6 @@
 
   /* ============ মূল স্ক্রিন ============ */
   function enterMain() {
-    /* ★ ফিক্স: আগে সব স্ক্রিন বন্ধ — OTP/লগইন স্ক্রিন ওপরে জমে থাকবে না ★ */
     hideAllScreens();
     clearInterval(S.resendTimer);
     D.resendBtn.disabled = true;
@@ -597,14 +597,45 @@
 
   D.dialNumIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') D.dialSearchBtn.click(); });
 
-  /* ============ চ্যাট ============ */
+  /* ================================================================
+     চ্যাট + ★ ছবি পাঠানো + ★ ভয়েস মেসেজ
+     ================================================================ */
+
+  /* মাইক/সেন্ড বাটন টগল */
+  function toggleSendMic() {
+    var has = D.chatTa.value.trim().length > 0;
+    D.sendMsgBtn.style.display = has ? '' : 'none';
+    D.micBtn.style.display = has ? 'none' : '';
+  }
+
+  /* আগের ভয়েস প্লেব্যাক বন্ধ */
+  function stopVoicePlayback() {
+    if (S.playingAudio) {
+      try { S.playingAudio.pause(); } catch (e) {}
+      S.playingAudio = null;
+    }
+    if (S.playingBtn) {
+      S.playingBtn.textContent = '▶';
+      var fill = S.playingBtn.parentNode.querySelector('.vfill');
+      if (fill) fill.style.width = '0';
+      S.playingBtn = null;
+    }
+  }
+
   function openChat(uid) {
     var user = findUser(uid);
     if (!user) { toast('ইউজার পাওয়া যায়নি', 'err'); return; }
+    stopVoicePlayback();
     S.chatTarget = { type: 'dm', uid: uid, user: user };
     D.chatAv.src = user.avatar;
     D.chatNameH.textContent = user.name;
     D.chatStatusP.textContent = user.online ? 'অনলাইন' : 'অফলাইন';
+
+    D.chatTa.value = '';
+    D.sendMsgBtn.style.display = 'none';
+    D.micBtn.style.display = '';
+    D.recBar.style.display = 'none';
+    D.inputWrap.style.display = '';
 
     var cid = DB.chatId(S.user.uid, uid);
     if (!S.chatMsgs[cid]) S.chatMsgs[cid] = [];
@@ -627,7 +658,6 @@
     });
 
     go(S.chatScr.classList.contains('on') ? D.chatScr : D.mainScr, D.chatScr, 'from-l');
-    D.chatTa.focus();
   }
 
   function renderMessages(cid) {
@@ -638,16 +668,60 @@
       if (ds !== lastDate) { html += '<div class="date-sep"><span>' + ds + '</span></div>'; lastDate = ds; }
       var isOut = m.senderId === S.user.uid;
       var tickHtml = isOut ? '<span class="tick">\u2713\u2713</span>' : '';
+      var body = '';
+
+      if (m.type === 'image' && m.img) {
+        body = '<img class="chat-img" src="' + esc(m.img) + '" data-full="' + esc(m.img) + '" alt="ছবি">';
+      } else if (m.type === 'voice' && m.voice) {
+        var vid = 'v' + (++S.voiceSeq);
+        S.voiceMap[vid] = { b64: m.voice, mime: m.vmime || 'audio/webm', dur: m.dur || 0 };
+        body = '<div class="vmsg"><button class="vplay" data-vid="' + vid + '">▶</button>' +
+          '<div class="vbar"><div class="vfill"></div></div>' +
+          '<span class="vdur">' + fmtTime(m.dur || 0) + '</span></div>';
+      } else {
+        body = esc(m.text);
+      }
+
       html += '<div class="' + (isOut ? 'msg out' : 'msg in') + '">' +
-        '<div class="bbl">' + esc(m.text) + '</div>' +
+        '<div class="bbl">' + body + '</div>' +
         '<div class="mt">' + fmtTimeShort(m.timestamp) + ' ' + tickHtml + '</div></div>';
     });
     D.msgsC.innerHTML = html;
     D.msgsC.scrollTop = D.msgsC.scrollHeight;
   }
 
+  /* মেসেজে ক্লিক — ভয়েস প্লে / ছবি ফুলস্ক্রিন */
+  D.msgsC.addEventListener('click', function (e) {
+    var vp = e.target.closest('.vplay');
+    if (vp) {
+      var vid = vp.getAttribute('data-vid');
+      var v = S.voiceMap[vid];
+      if (!v) return;
+      stopVoicePlayback();
+      var a = new Audio('data:' + v.mime + ';base64,' + v.b64);
+      S.playingAudio = a;
+      S.playingBtn = vp;
+      vp.textContent = '⏸';
+      var fill = vp.parentNode.querySelector('.vfill');
+      a.ontimeupdate = function () {
+        if (fill && a.duration) fill.style.width = ((a.currentTime / a.duration) * 100) + '%';
+      };
+      a.onended = function () { stopVoicePlayback(); };
+      a.play().catch(function () { toast('প্লে করা যায়নি', 'err'); });
+      return;
+    }
+    var im = e.target.closest('.chat-img');
+    if (im) {
+      D.imgViewerImg.src = im.getAttribute('data-full');
+      D.imgViewer.classList.add('on');
+    }
+  });
+
+  D.imgViewerClose.addEventListener('click', function () { D.imgViewer.classList.remove('on'); D.imgViewerImg.src = ''; });
+
+  /* টাইপিং + বাটন টগল */
   D.chatTa.addEventListener('input', function () {
-    D.sendMsgBtn.disabled = !D.chatTa.value.trim();
+    toggleSendMic();
     D.chatTa.style.height = 'auto';
     D.chatTa.style.height = Math.min(D.chatTa.scrollHeight, 100) + 'px';
     if (S.chatTarget) {
@@ -671,12 +745,156 @@
     DB.clearTyping(cid, S.user.uid);
     D.chatTa.value = '';
     D.chatTa.style.height = 'auto';
-    D.sendMsgBtn.disabled = true;
+    toggleSendMic();
   }
+
+  /* ============ ★ ছবি পাঠানো (ImgBB) ============ */
+  D.attachBtn.addEventListener('click', function () { D.imgInput.click(); });
+
+  D.imgInput.addEventListener('change', async function () {
+    var f = this.files[0];
+    this.value = '';
+    if (!f || !S.chatTarget) return;
+    if (!/^image\//.test(f.type)) { toast('ছবি ফাইল দিন', 'err'); return; }
+
+    toast('ছবি আপলোড হচ্ছে...', 'ok');
+    try {
+      var url = await DB.uploadImage(f, 1280);
+      var cid = DB.chatId(S.user.uid, S.chatTarget.uid);
+      DB.sendMsg(cid, {
+        senderId: S.user.uid,
+        text: '📷 ছবি',
+        img: url,
+        type: 'image',
+        timestamp: Date.now()
+      });
+      DB.clearTyping(cid, S.user.uid);
+      toast('ছবি পাঠানো হয়েছে ✅', 'ok');
+    } catch (e) {
+      toast(e.message || 'ছবি পাঠানো যায়নি', 'err');
+    }
+  });
+
+  /* ============ ★ ভয়েস মেসেজ রেকর্ডিং ============ */
+  D.micBtn.addEventListener('click', async function () {
+    if (!S.chatTarget) return;
+    if (typeof MediaRecorder === 'undefined') { toast('এই ব্রাউজারে ভয়েস রেকর্ড সাপোর্ট নেই', 'err'); return; }
+
+    try {
+      S.recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      toast('মাইক্রোফোনের অনুমতি দিন', 'err');
+      return;
+    }
+
+    S.recMime = '';
+    var types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+    for (var i = 0; i < types.length; i++) {
+      if (MediaRecorder.isTypeSupported(types[i])) { S.recMime = types[i]; break; }
+    }
+
+    try {
+      S.mediaRecorder = S.recMime ? new MediaRecorder(S.recStream, { mimeType: S.recMime }) : new MediaRecorder(S.recStream);
+    } catch (e) {
+      toast('রেকর্ডার চালু হয়নি', 'err');
+      S.recStream.getTracks().forEach(function (t) { t.stop(); });
+      return;
+    }
+
+    S.recChunks = [];
+    S.mediaRecorder.ondataavailable = function (e) {
+      if (e.data && e.data.size > 0) S.recChunks.push(e.data);
+    };
+    S.mediaRecorder.start();
+
+    /* UI: রেকর্ডিং মোড */
+    D.inputWrap.style.display = 'none';
+    D.micBtn.style.display = 'none';
+    D.recBar.style.display = 'flex';
+    S.recStart = Date.now();
+    D.recTime.textContent = '0:00';
+    S.recTimerIv = setInterval(function () {
+      var sec = Math.floor((Date.now() - S.recStart) / 1000);
+      D.recTime.textContent = fmtTime(sec);
+      /* ৬০ সেকেন্ডে অটো-স্টপ ও পাঠানো */
+      if (sec >= 60) finishRecording(true);
+    }, 500);
+  });
+
+  function stopRecorderUI() {
+    clearInterval(S.recTimerIv);
+    D.recBar.style.display = 'none';
+    D.inputWrap.style.display = '';
+    D.micBtn.style.display = D.chatTa.value.trim() ? 'none' : '';
+  }
+
+  function releaseMic() {
+    if (S.recStream) {
+      S.recStream.getTracks().forEach(function (t) { t.stop(); });
+      S.recStream = null;
+    }
+  }
+
+  function blobToB64(blob) {
+    return new Promise(function (res, rej) {
+      var r = new FileReader();
+      r.onload = function () { res(r.result.split(',')[1]); };
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+  }
+
+  /* রেকর্ডিং শেষ করে ভয়েস মেসেজ পাঠানো */
+  async function finishRecording(send) {
+    if (!S.mediaRecorder || S.mediaRecorder.state === 'inactive') { stopRecorderUI(); releaseMic(); return; }
+
+    var dur = Math.max(1, Math.floor((Date.now() - S.recStart) / 1000));
+    var mr = S.mediaRecorder;
+    S.mediaRecorder = null;
+
+    var stopped = new Promise(function (res) { mr.onstop = res; });
+    try { mr.stop(); } catch (e) {}
+    await stopped;
+    releaseMic();
+    stopRecorderUI();
+
+    if (!send) { S.recChunks = []; toast('রেকর্ডিং বাতিল', 'ok'); return; }
+    if (!S.recChunks.length) { S.recChunks = []; return; }
+
+    var blob = new Blob(S.recChunks, { type: S.recMime || 'audio/webm' });
+    S.recChunks = [];
+
+    /* ৬০ সেকেন্ড = ~৩০০KB base64, Firestore সীমার ভেতরে */
+    if (blob.size > 900000) { toast('ভয়েস খুব বড় — ছোট করে পাঠান', 'err'); return; }
+
+    try {
+      toast('ভয়েস পাঠানো হচ্ছে...', 'ok');
+      var b64 = await blobToB64(blob);
+      var cid = DB.chatId(S.user.uid, S.chatTarget.uid);
+      DB.sendMsg(cid, {
+        senderId: S.user.uid,
+        text: '🎙️ ভয়েস মেসেজ',
+        voice: b64,
+        vmime: S.recMime || 'audio/webm',
+        dur: dur,
+        type: 'voice',
+        timestamp: Date.now()
+      });
+      DB.clearTyping(cid, S.user.uid);
+      toast('ভয়েস মেসেজ পাঠানো হয়েছে ✅', 'ok');
+    } catch (e) {
+      toast('ভয়েস পাঠানো যায়নি', 'err');
+    }
+  }
+
+  D.recSend.addEventListener('click', function () { finishRecording(true); });
+  D.recCancel.addEventListener('click', function () { finishRecording(false); });
 
   D.chatBackBtn.addEventListener('click', function () {
     if (S.chatUnsub) { S.chatUnsub(); S.chatUnsub = null; }
     if (S.typingUnsub) { S.typingUnsub(); S.typingUnsub = null; }
+    if (S.mediaRecorder && S.mediaRecorder.state !== 'inactive') finishRecording(false);
+    stopVoicePlayback();
     S.chatTarget = null;
     back(D.chatScr, D.mainScr);
   });
@@ -727,15 +945,12 @@
         await DB.logout(S.user.uid);
         S.user = null; S.chatMsgs = {}; S.chatList = []; S.contacts = []; S.callHistory = [];
         disableSec();
-
-        /* ★ ফিক্স: লগআউটেও সব স্ক্রিন বন্ধ করে রেজিস্ট্রেশন স্ক্রিন খোলা ★ */
         hideAllScreens();
         clearInterval(S.resendTimer);
         D.nameIn.value = ''; D.phoneIn.value = '';
         D.regEmailIn.value = ''; D.regPassIn.value = '';
         D.loginEmailIn.value = ''; D.loginPassIn.value = '';
         requestAnimationFrame(function () { D.phoneScr.classList.add('on'); });
-
         toast('লগআউট হয়েছে', 'ok');
       } catch (e) { toast('লগআউট ব্যর্থ', 'err'); }
     });
@@ -747,7 +962,7 @@
     if (!/^image\//.test(f.type)) { toast('ছবি ফাইল দিন', 'err'); return; }
     toast('ছবি আপলোড হচ্ছে...', 'ok');
     try {
-      var url = await DB.uploadAvatar(f);
+      var url = await DB.uploadImage(f, 512);
       await DB.updateProfile(S.user.uid, { avatar: url });
       S.user.avatar = url;
       toast('প্রোফাইল ছবি সেভ হয়েছে ✅', 'ok');
