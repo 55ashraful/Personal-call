@@ -1,7 +1,3 @@
-/* ================================================================
-   firebase.js — Auth + Firestore + কন্টাক্ট + WebRTC কল সিগন্যালিং
-   নতুন: EmailJS-ভিত্তিক রেজিস্ট্রেশন (SMS লাগে না, বিলিং লাগে না)
-   ================================================================ */
 var DB = (function () {
   var _a = null, _d = null, _ok = false;
 
@@ -30,13 +26,60 @@ var DB = (function () {
     return p;
   }
 
-  /* এই নম্বরে আগে অ্যাকাউন্ট আছে কিনা */
+  /* ===== ImgBB ছবি আপলোড ===== */
+  function resizeImage(file, maxSize) {
+    return new Promise(function (res, rej) {
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function () {
+        var w = img.width, h = img.height;
+        var scale = Math.min(1, maxSize / Math.max(w, h));
+        var cv = document.createElement('canvas');
+        cv.width = Math.round(w * scale);
+        cv.height = Math.round(h * scale);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(url);
+        cv.toBlob(function (blob) {
+          if (blob) res(blob); else rej(new Error('ছবি প্রসেস ব্যর্থ'));
+        }, 'image/jpeg', 0.85);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('ছবি পড়া যায়নি')); };
+      img.src = url;
+    });
+  }
+
+  function blobToBase64(blob) {
+    return new Promise(function (res, rej) {
+      var r = new FileReader();
+      r.onload = function () { res(r.result.split(',')[1]); };
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+  }
+
+  async function uploadAvatar(file) {
+    if (!_C.imgbb || !_C.imgbb.apiKey) {
+      throw new Error('ImgBB API key নেই — config.js ঠিক করুন');
+    }
+    var blob = await resizeImage(file, 512);
+    var b64 = await blobToBase64(blob);
+    var fd = new FormData();
+    fd.append('key', _C.imgbb.apiKey);
+    fd.append('image', b64);
+    var resp = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: fd });
+    var j = await resp.json();
+    if (j && j.success && j.data) {
+      return j.data.display_url || j.data.url;
+    }
+    throw new Error('ছবি আপলোড ব্যর্থ — আবার চেষ্টা করুন');
+  }
+
+  /* ===== রেজিস্ট্রেশন ===== */
   async function phoneExists(phone) {
     var s = await _d.collection('users').where('phone', '==', normPhone(phone)).limit(1).get();
     return !s.empty;
   }
 
-  /* ইমেইল কোড ভেরিফাই হওয়ার পর অ্যাকাউন্ট তৈরি */
   async function registerAccount(name, phone, email, pass) {
     var c = await _a.createUserWithEmailAndPassword(email, pass);
     await c.user.updateProfile({ displayName: name });
@@ -55,44 +98,6 @@ var DB = (function () {
   async function emailLogin(email, pass) {
     var c = await _a.signInWithEmailAndPassword(email, pass);
     return await _gu(c.user);
-  }
-
-  /* ===== গুগল ===== */
-  async function googleLogin() {
-    if (!_a) throw new Error('Firebase Auth রেডি নয়');
-    var p = new firebase.auth.GoogleAuthProvider();
-    p.addScope('profile');
-    p.addScope('email');
-    var r;
-    try {
-      r = await _a.signInWithPopup(p);
-    } catch (e) {
-      if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment' || e.code === 'auth/cancelled-popup-request') {
-        await _a.signInWithRedirect(p);
-        return null;
-      }
-      throw e;
-    }
-    var u = r.user;
-    var doc = await _d.collection('users').doc(u.uid).get();
-    if (!doc.exists) {
-      var a = u.photoURL || av(u.uid);
-      var data = {
-        name: u.displayName || 'ব্যবহারকারী',
-        email: u.email || '', phone: u.phoneNumber || '',
-        avatar: a, online: true,
-        lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      };
-      await _d.collection('users').doc(u.uid).set(data);
-      return { uid: u.uid, name: data.name, email: data.email, phone: data.phone, avatar: a };
-    }
-    return await _gu(u);
-  }
-
-  function handleRedirect() {
-    if (!_a) return;
-    _a.getRedirectResult().catch(function (e) { console.error('redirect ত্রুটি:', e); });
   }
 
   async function updateProfile(uid, data) {
@@ -276,11 +281,10 @@ var DB = (function () {
 
   return {
     init: init, normPhone: normPhone, av: av,
+    uploadAvatar: uploadAvatar,
     phoneExists: phoneExists,
     registerAccount: registerAccount,
     emailLogin: emailLogin,
-    googleLogin: googleLogin,
-    handleRedirect: handleRedirect,
     updateProfile: updateProfile,
     logout: logout, setOn: setOn, setOff: setOff,
     onUsers: onUsers, findByPhone: findByPhone,
