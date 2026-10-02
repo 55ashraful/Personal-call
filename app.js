@@ -1,7 +1,6 @@
 (function () {
   'use strict';
 
-  /* দেশের লিস্ট — [কোড, পতাকা, নাম, ডায়াল কোড] */
   var COUNTRIES = [
     ['BD','🇧🇩','বাংলাদেশ','+880'],['IN','🇮🇳','ভারত','+91'],['PK','🇵🇰','পাকিস্তান','+92'],
     ['LK','🇱🇰','শ্রীলঙ্কা','+94'],['NP','🇳🇵','নেপাল','+977'],['MM','🇲🇲','মিয়ানমার','+95'],
@@ -105,14 +104,15 @@
     D.toast.textContent = m;
     D.toast.className = 'show' + (t ? ' ' + t : '');
     clearTimeout(D.toast._t);
-    D.toast._t = setTimeout(function () { D.toast.className = ''; }, 5000);
+    D.toast._t = setTimeout(function () { D.toast.className = ''; }, 6000);
   }
 
   function errMsG(e) {
-    console.error('ত্রুটি:', e);
+    console.error('পূর্ণ ত্রুটি:', e);
     var code = e && e.code ? e.code : '';
     var map = {
       'emailjs/not-configured': 'config.js-এ EmailJS-এর ৩টা কী বসান',
+      'permission-denied': 'Firestore Rules ঠিক নেই! Firebase Console → Firestore Database → Rules ঠিক করে Publish করুন',
       'auth/email-already-in-use': 'এই ইমেইলে আগেই অ্যাকাউন্ট আছে — লগইন করুন',
       'auth/invalid-email': 'ভুল ইমেইল ফরম্যাট',
       'auth/weak-password': 'পাসওয়ার্ড দুর্বল — কমপক্ষে ৬ অক্ষর',
@@ -123,7 +123,8 @@
       'auth/network-request-failed': 'ইন্টারনেট সমস্যা',
       'auth/unauthorized-domain': 'Firebase Console → Authentication → Settings → Authorized domains এ ডোমেইন যোগ করুন'
     };
-    return map[code] || ('ত্রুটি: ' + (code || (e && e.message) || 'অজানা'));
+    var detail = code || (e && (e.message || e.text)) || 'অজানা';
+    return map[code] || ('ত্রুটি: ' + detail);
   }
 
   function go(from, to, cls) {
@@ -223,9 +224,7 @@
     }, 1000);
   }
 
-  /* ================================================================
-     কান্ট্রি সিলেক্টর
-     ================================================================ */
+  /* ============ কান্ট্রি সিলেক্টর ============ */
   function setCountry(c) {
     S.ccCountry = c;
     D.ccFlag.textContent = c[1];
@@ -259,9 +258,7 @@
   D.ccClose.addEventListener('click', function () { D.ccOv.classList.remove('on'); });
   D.ccSearchIn.addEventListener('input', function () { renderCountryList(D.ccSearchIn.value); });
 
-  /* ================================================================
-     রেজিস্ট্রেশন — ইমেইলে কোড (EmailJS)
-     ================================================================ */
+  /* ============ EmailJS — ইমেইলে কোড ============ */
   function emailJsReady() {
     return typeof emailjs !== 'undefined' && _C.email && _C.email.publicKey &&
       _C.email.serviceId && _C.email.templateId &&
@@ -272,20 +269,36 @@
 
   async function sendCodeViaEmail() {
     if (!emailJsReady()) {
-      var e = new Error('EmailJS কনফিগার নেই');
+      var e = new Error('EmailJS কনফিগার নেই — config.js ঠিক করুন');
       e.code = 'emailjs/not-configured';
       throw e;
     }
     S.emailCode = String(Math.floor(100000 + Math.random() * 900000));
     S.codeExp = Date.now() + 10 * 60 * 1000;
-    await emailjs.send(_C.email.serviceId, _C.email.templateId, {
+
+    /* টেমপ্লেট যে ভেরিয়েবলই চাক — সব নামে ডাটা পাঠানো হচ্ছে */
+    var params = {
       to_email: S.pendingReg.email,
+      email: S.pendingReg.email,
+      user_email: S.pendingReg.email,
+      recipient: S.pendingReg.email,
+      reply_to: S.pendingReg.email,
       to_name: S.pendingReg.name,
+      name: S.pendingReg.name,
+      user_name: S.pendingReg.name,
       code: S.emailCode,
+      passcode: S.emailCode,
+      otp: S.emailCode,
+      token: S.emailCode,
+      time: '10',
+      subject: 'Personal Call ভেরিফিকেশন কোড',
       app_name: 'Personal Call'
-    });
+    };
+
+    await emailjs.send(_C.email.serviceId, _C.email.templateId, params, { publicKey: _C.email.publicKey });
   }
 
+  /* ============ রেজিস্ট্রেশন ============ */
   D.regBtn.addEventListener('click', async function () {
     var name = D.nameIn.value.trim();
     var nnum = D.phoneIn.value.replace(/\D/g, '');
@@ -310,6 +323,8 @@
       }
 
       S.pendingReg = { name: name, phone: full, email: email, pass: pass };
+
+      toast('ইমেইল পাঠানো হচ্ছে...', 'ok');
       await sendCodeViaEmail();
 
       D.otpPhone.textContent = email;
@@ -341,7 +356,7 @@
         S.user = await DB.registerAccount(r.name, r.phone, r.email, r.pass);
         S.pendingReg = null; S.emailCode = null;
         clearInterval(S.resendTimer);
-        toast('অ্যাকাউন্ট তৈরি হয়েছে! 🎉 সেটিংস থেকে প্রোফাইল ছবি দিতে পারবেন', 'ok');
+        toast('অ্যাকাউন্ট তৈরি হয়েছে! 🎉', 'ok');
         enterMain();
       }
     } catch (e) {
@@ -362,6 +377,7 @@
 
   D.otpBack.addEventListener('click', function () { back(D.otpScr, D.phoneScr); });
 
+  /* ============ লগইন ============ */
   D.showEmailLogin.addEventListener('click', function () { go(D.phoneScr, D.emailScr, 'from-l'); });
   D.emailBack.addEventListener('click', function () { back(D.emailScr, D.phoneScr); });
 
@@ -380,9 +396,7 @@
     D.loginBtn.textContent = 'লগইন করুন';
   });
 
-  /* ================================================================
-     মূল স্ক্রিন
-     ================================================================ */
+  /* ============ মূল স্ক্রিন ============ */
   function enterMain() {
     enableSec();
     DB.setOn(S.user.uid);
@@ -515,9 +529,7 @@
     });
   }
 
-  /* ================================================================
-     ডায়ালার
-     ================================================================ */
+  /* ============ ডায়ালার ============ */
   D.dialFab.addEventListener('click', function () { go(D.mainScr, D.dialScr, 'from-l'); });
   D.dialBack.addEventListener('click', function () { back(D.dialScr, D.mainScr); });
 
@@ -574,9 +586,7 @@
 
   D.dialNumIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') D.dialSearchBtn.click(); });
 
-  /* ================================================================
-     চ্যাট
-     ================================================================ */
+  /* ============ চ্যাট ============ */
   function openChat(uid) {
     var user = findUser(uid);
     if (!user) { toast('ইউজার পাওয়া যায়নি', 'err'); return; }
@@ -671,9 +681,7 @@
     });
   });
 
-  /* ================================================================
-     সেটিংস — ★ এখানেই গ্যালারি থেকে প্রোফাইল ছবি ★
-     ================================================================ */
+  /* ============ সেটিংস ============ */
   D.menuBtn.addEventListener('click', function () { renderSettings(); go(D.mainScr, D.setScr, 'from-l'); });
   D.setBackBtn.addEventListener('click', function () { back(D.setScr, D.mainScr); });
 
@@ -714,7 +722,6 @@
     });
   }
 
-  /* ★ গ্যালারি → ImgBB আপলোড → সেভ ★ */
   D.setAvInput.addEventListener('change', async function () {
     var f = this.files[0];
     if (!f) return;
@@ -745,9 +752,7 @@
     }, 4000);
   });
 
-  /* ================================================================
-     রিয়েল WebRTC কল
-     ================================================================ */
+  /* ============ রিয়েল WebRTC কল ============ */
   function cleanupPC() {
     if (S.candUnsub) { S.candUnsub(); S.candUnsub = null; }
     if (S.callUnsub) { S.callUnsub(); S.callUnsub = null; }
@@ -1037,11 +1042,15 @@
   D.chatCallBtn.addEventListener('click', function () { if (S.chatTarget && S.chatTarget.uid) startCall(S.chatTarget.uid, 'audio'); });
   D.chatVidBtn.addEventListener('click', function () { if (S.chatTarget && S.chatTarget.uid) startCall(S.chatTarget.uid, 'video'); });
 
-  /* ================================================================
-     ইনিশিয়ালাইজ
-     ================================================================ */
+  /* ============ ইনিশিয়ালাইজ ============ */
   try {
     DB.init();
+
+    /* ★ EmailJS init — অ্যাপ শুরুতেই ★ */
+    if (typeof emailjs !== 'undefined' && _C.email && _C.email.publicKey) {
+      emailjs.init({ publicKey: _C.email.publicKey });
+    }
+
     DB.onAuth(function (user) {
       if (user && !S.user) { S.user = user; enterMain(); }
     });
