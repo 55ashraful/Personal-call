@@ -285,7 +285,7 @@ var DB = (function () {
     chatListUnsub: null, contactsUnsub: null, historyUnsub: null,
     unsubUsers: null, unsubCalls: null,
     ccCountry: null, pendingReg: null, emailCode: null, codeExp: 0,
-    resendTimer: null, resendSec: 60,
+    resendTimer: null, resendSec: 60, notified: {},
     callActive: false, callType: 'video', callPhase: 'idle',
     callTarget: null, callDocId: null, iAmCaller: false, wasConnected: false,
     pc: null, callUnsub: null, candUnsub: null, outTimeout: null, incTimeout: null,
@@ -306,6 +306,26 @@ var DB = (function () {
 
   var q = function (s) { return document.querySelector(s); };
   var qa = function (s) { return document.querySelectorAll(s); };
+  /* ===== ফোনের স্ক্রিনে নোটিফিকেশন ===== */
+function showNotif(title, body, tag, onClick) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    var n = new Notification(title, {
+      body: body, tag: tag,
+      icon: 'https://ui-avatars.com/api/?name=PC&background=00a884&color=fff&size=192&bold=true'
+    });
+    n.onclick = function () { window.focus(); n.close(); if (onClick) onClick(); };
+  } catch (e) {}
+}
+function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+async function askNotifPerm() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    try { await Notification.requestPermission(); } catch (e) {}
+  }
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(function () {});
+  }
+}
 
   var D = {
     toast: q('#toast'), secOv: q('#secOverlay'),
@@ -573,13 +593,32 @@ var DB = (function () {
   /* মূল */
   function enterMain() {
     hideAll();
+    askNotifPerm();
     clearInterval(S.resendTimer);
     D.resendBtn.disabled = true;
     clearOTP();
     DB.setOn(S.user.uid);
 
     S.unsubUsers = DB.onUsers(S.user.uid, function (us) { S.users = us; renderChats(); renderContacts(); });
-    S.chatListUnsub = DB.onChatList(S.user.uid, function (c) { S.chatList = c; renderChats(); });
+        S.chatListUnsub = DB.onChatList(S.user.uid, function (c) {
+      S.chatList = c; renderChats();
+      /* ★ নতুন মেসেজ → ফোনের নোটিফিকেশন ★ */
+      c.forEach(function (ch) {
+        if (!ch.lastMsg || ch.lastMsg.sid === S.user.uid) return;
+        var key = ch.id + '_' + (ch.lastMsg.ts || 0);
+        if (S.notified[key]) return;
+        S.notified[key] = 1;
+        var otherUid = ch.parts[0] === S.user.uid ? ch.parts[1] : ch.parts[0];
+        var u = findU(otherUid);
+        var isOpen = S.chatTarget && S.chatTarget.uid === otherUid && document.hasFocus();
+        if (!isOpen) {
+          showNotif('💬 ' + (u ? u.name : 'নতুন মেসেজ'), ch.lastMsg.text || 'নতুন মেসেজ', 'msg_' + ch.id, function () {
+            if (findU(otherUid)) openChat(otherUid);
+          });
+          vibrate(200);
+        }
+      });
+    });
     S.contactsUnsub = DB.onContacts(S.user.uid, function (c) { S.contacts = c; renderContacts(); });
     S.historyUnsub = DB.onCallHistory(S.user.uid, function (h) { S.callHistory = h; renderHistory(); });
     S.unsubCalls = DB.onIncCall(S.user.uid, incoming);
@@ -1121,6 +1160,8 @@ var DB = (function () {
     D.incType.textContent = c.type === 'video' ? 'ভিডিও কল' : 'অডিও কল';
     D.incPop.classList.add('on');
     playRing();
+    showNotif('📞 ইনকামিং ' + (c.type === 'video' ? 'ভিডিও' : 'অডিও') + ' কল', c.callerName || 'অজানা', 'call_' + c.id);
+    vibrate([600, 300, 600, 300, 600]);
 
     S.incTimeout = setTimeout(function () {
       if (S.callPhase === 'incoming') {
