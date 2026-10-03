@@ -1,16 +1,10 @@
-/* ================================================================
-   Personal Call — সম্পূর্ণ এক-ফাইল অ্যাপ (v6)
-   Auth + Firestore + ImgBB + WebRTC কল + চ্যাট + ছবি + ভয়েস
-   ================================================================ */
-
-/* ★ এরর জাল: কিছু ভাঙলে টোস্টে দেখাবে ★ */
 window.onerror = function (m, s, l) {
   var t = document.getElementById('toast');
-  if (t) { t.textContent = '⚠ এরর: ' + m + ' (লাইন ' + l + ')'; t.className = 'show err'; }
+  if (t) { t.textContent = '⚠ ' + m + ' (লাইন ' + l + ')'; t.className = 'show err'; }
   return false;
 };
 
-/* ================= DB অংশ ================= */
+/* ================= DB ================= */
 var DB = (function () {
   var _a = null, _d = null;
 
@@ -18,10 +12,9 @@ var DB = (function () {
     firebase.initializeApp(_C.fb);
     _a = firebase.auth();
     _d = firebase.firestore();
-    _d.enablePersistence({ synchronizeTabs: true }).catch(function () {});
   }
 
-  function uiAvatar(n) {
+  function uiAv(n) {
     n = String(n || '').trim() || 'U';
     return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(n) + '&background=00a884&color=fff&size=200&bold=true';
   }
@@ -32,7 +25,7 @@ var DB = (function () {
     return p;
   }
 
-  function resizeImage(file, max) {
+  function resizeImg(file, max) {
     return new Promise(function (res, rej) {
       var img = new Image(), url = URL.createObjectURL(file);
       img.onload = function () {
@@ -49,7 +42,7 @@ var DB = (function () {
     });
   }
 
-  function b64(blob) {
+  function toB64(blob) {
     return new Promise(function (res, rej) {
       var r = new FileReader();
       r.onload = function () { res(r.result.split(',')[1]); };
@@ -59,8 +52,9 @@ var DB = (function () {
   }
 
   async function uploadImage(file, max) {
-    var blob = await resizeImage(file, max || 1280);
-    var d = await b64(blob);
+    if (!_C.imgbb || !_C.imgbb.apiKey) throw new Error('ImgBB key নেই (config.js)');
+    var blob = await resizeImg(file, max || 1280);
+    var d = await toB64(blob);
     var fd = new FormData();
     fd.append('key', _C.imgbb.apiKey);
     fd.append('image', d);
@@ -77,14 +71,13 @@ var DB = (function () {
 
   async function registerAccount(name, phone, email, pass) {
     var c = await _a.createUserWithEmailAndPassword(email, pass);
-    await c.user.updateProfile({ displayName: name });
     await _d.collection('users').doc(c.user.uid).set({
       name: name, phone: normPhone(phone), email: email,
-      avatar: uiAvatar(name), online: true,
+      avatar: uiAv(name), online: true,
       lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    return { uid: c.user.uid, name: name, phone: normPhone(phone), email: email, avatar: uiAvatar(name) };
+    return { uid: c.user.uid, name: name, phone: normPhone(phone), email: email, avatar: uiAv(name) };
   }
 
   async function emailLogin(email, pass) {
@@ -92,7 +85,7 @@ var DB = (function () {
     var d = await _d.collection('users').doc(c.user.uid).get();
     if (d.exists) return { uid: c.user.uid, ...d.data() };
     var nm = c.user.displayName || 'ব্যবহারকারী';
-    return { uid: c.user.uid, name: nm, email: c.user.email || '', phone: '', avatar: uiAvatar(nm) };
+    return { uid: c.user.uid, name: nm, email: c.user.email || '', phone: '', avatar: uiAv(nm) };
   }
 
   async function updateProfile(uid, data) {
@@ -125,7 +118,7 @@ var DB = (function () {
   async function addContact(uid, c) {
     await _d.collection('users').doc(uid).collection('contacts').doc(c.id).set({
       uid: c.id, name: c.name || 'কন্টাক্ট', phone: c.phone || '',
-      avatar: c.avatar || uiAvatar(c.name),
+      avatar: c.avatar || uiAv(c.name),
       addedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
   }
@@ -173,7 +166,7 @@ var DB = (function () {
       }, function (e) { console.error('onChatList:', e); });
   }
 
-  function setTyping(cid, uid) { if (_d) _d.collection('chats').doc(cid).collection('typing').doc(uid).set({ ts: 1 }); }
+  function setTyping(cid, uid) { if (_d) _d.collection('chats').doc(cid).collection('typing').doc(uid).set({ t: 1 }).catch(function () {}); }
   function clearTyping(cid, uid) { if (_d) _d.collection('chats').doc(cid).collection('typing').doc(uid).delete().catch(function () {}); }
   function onTyping(cid, muid, cb) {
     return _d.collection('chats').doc(cid).collection('typing')
@@ -239,14 +232,14 @@ var DB = (function () {
         if (d.exists) cb({ uid: u.uid, ...d.data() });
         else {
           var nm = u.displayName || 'ব্যবহারকারী';
-          cb({ uid: u.uid, name: nm, email: u.email || '', phone: '', avatar: uiAvatar(nm) });
+          cb({ uid: u.uid, name: nm, email: u.email || '', phone: '', avatar: uiAv(nm) });
         }
       }
     });
   }
 
   return {
-    init: init, normPhone: normPhone, uiAvatar: uiAvatar, uploadImage: uploadImage,
+    init: init, normPhone: normPhone, uiAv: uiAv, uploadImage: uploadImage,
     phoneExists: phoneExists, registerAccount: registerAccount, emailLogin: emailLogin,
     updateProfile: updateProfile, logout: logout, setOn: setOn, setOff: setOff,
     onUsers: onUsers, findByPhone: findByPhone, addContact: addContact, removeContact: removeContact,
@@ -258,21 +251,38 @@ var DB = (function () {
   };
 })();
 
-/* ================= অ্যাপ অংশ ================= */
+/* ================= নোটিফিকেশন ================= */
+function showNotif(title, body, tag) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    var n = new Notification(title, { body: body, tag: tag });
+    n.onclick = function () { window.focus(); n.close(); };
+  } catch (e) {}
+}
+function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+async function askNotif() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    try { await Notification.requestPermission(); } catch (e) {}
+  }
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  }
+}
+
+/* ================= অ্যাপ ================= */
 (function () {
   'use strict';
 
   var COUNTRIES = [
     ['BD', '🇧🇩', 'বাংলাদেশ', '+880'], ['IN', '🇮🇳', 'ভারত', '+91'], ['PK', '🇵🇰', 'পাকিস্তান', '+92'],
     ['SA', '🇸🇦', 'সৌদি আরব', '+966'], ['AE', '🇦🇪', 'ইউএই', '+971'], ['MY', '🇲🇾', 'মালয়েশিয়া', '+60'],
-    ['US', '🇺🇸', 'যুক্তরাষ্ট্র', '+1'], ['GB', '🇬🇧', 'যুক্তরাজ্য', '+44'], ['LK', '🇱🇰', 'শ্রীলঙ্কা', '+94'],
-    ['NP', '🇳🇵', 'নেপাল', '+977']
+    ['US', '🇺🇸', 'যুক্তরাষ্ট্র', '+1'], ['GB', '🇬🇧', 'যুক্তরাজ্য', '+44']
   ];
 
-  function guessCountry() {
+  function guessCC() {
     try {
       var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-      var m = { 'Asia/Dhaka': 'BD', 'Asia/Kolkata': 'IN', 'Asia/Karachi': 'PK', 'Asia/Riyadh': 'SA', 'Asia/Dubai': 'AE', 'Asia/Kuala_Lumpur': 'MY', 'Europe/London': 'GB', 'America/New_York': 'US', 'Asia/Colombo': 'LK', 'Asia/Kathmandu': 'NP' };
+      var m = { 'Asia/Dhaka': 'BD', 'Asia/Kolkata': 'IN', 'Asia/Karachi': 'PK', 'Asia/Riyadh': 'SA', 'Asia/Dubai': 'AE', 'Asia/Kuala_Lumpur': 'MY', 'Europe/London': 'GB', 'America/New_York': 'US' };
       var c = m[tz];
       if (c) return COUNTRIES.find(function (x) { return x[0] === c; }) || COUNTRIES[0];
     } catch (e) {}
@@ -306,26 +316,6 @@ var DB = (function () {
 
   var q = function (s) { return document.querySelector(s); };
   var qa = function (s) { return document.querySelectorAll(s); };
-  /* ===== ফোনের স্ক্রিনে নোটিফিকেশন ===== */
-function showNotif(title, body, tag, onClick) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  try {
-    var n = new Notification(title, {
-      body: body, tag: tag,
-      icon: 'https://ui-avatars.com/api/?name=PC&background=00a884&color=fff&size=192&bold=true'
-    });
-    n.onclick = function () { window.focus(); n.close(); if (onClick) onClick(); };
-  } catch (e) {}
-}
-function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
-async function askNotifPerm() {
-  if ('Notification' in window && Notification.permission === 'default') {
-    try { await Notification.requestPermission(); } catch (e) {}
-  }
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(function () {});
-  }
-}
 
   var D = {
     toast: q('#toast'), secOv: q('#secOverlay'),
@@ -337,7 +327,7 @@ async function askNotifPerm() {
     ccBtn: q('#ccBtn'), ccFlag: q('#ccFlag'), ccCode: q('#ccCode'),
     ccOv: q('#ccOv'), ccClose: q('#ccClose'), ccSearchIn: q('#ccSearchIn'), ccList: q('#ccList'),
     emailBack: q('#emailBack'), loginEmailIn: q('#loginEmailIn'), loginPassIn: q('#loginPassIn'), loginBtn: q('#loginBtn'),
-    otpBack: q('#otpBack'), otpPhone: q('#otpPhone'), otpInputs: q('#otpInputs'),
+    otpBack: q('#otpBack'), otpPhone: q('#otpPhone'),
     verifyOtpBtn: q('#verifyOtpBtn'), resendBtn: q('#resendBtn'), resendTimer: q('#resendTimer'),
     tabChats: q('#tabChats'), tabCalls: q('#tabCalls'), tabContacts: q('#tabContacts'),
     dialFab: q('#dialFab'), dialBack: q('#dialBack'), dialNumIn: q('#dialNumIn'),
@@ -351,7 +341,7 @@ async function askNotifPerm() {
     callBg: q('#callBg'), callVid: q('#callVid'), remVid: q('#remVid'), locVid: q('#locVid'), pipWrap: q('#pipWrap'),
     remAudio: q('#remAudio'),
     callInfo: q('#callInfo'), callAv: q('#callAv'), callNameH: q('#callNameH'), callStTxt: q('#callStTxt'), callTimer: q('#callTimer'), ringCircles: q('#ringCircles'),
-    muteBtn: q('#muteBtn'), camBtn: q('#camBtn'), spkBtn: q('#spkBtn'), endBtn: q('#endBtn'),
+    muteBtn: q('#muteBtn'), camBtn: q('#camBtn'), endBtn: q('#endBtn'),
     incAv: q('#incAv'), incName: q('#incName'), incType: q('#incType'), accBtn: q('#accBtn'), accIco: q('#accIco'), rejBtn: q('#rejBtn'),
     searchBtn: q('#searchBtn'), menuBtn: q('#menuBtn'),
     imgViewer: q('#imgViewer'), imgViewerImg: q('#imgViewerImg'), imgViewerClose: q('#imgViewerClose')
@@ -368,11 +358,11 @@ async function askNotifPerm() {
     console.error(e);
     var code = e && e.code ? e.code : '';
     var map = {
-      'permission-denied': 'Firestore Rules ঠিক করুন ও Publish করুন',
-      'auth/email-already-in-use': 'এই ইমেইলে আগেই অ্যাকাউন্ট আছে — লগইন করুন',
-      'auth/weak-password': 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষর',
+      'permission-denied': 'Firestore Rules ঠিক করুন',
+      'auth/email-already-in-use': 'ইমেইলে অ্যাকাউন্ট আছে — লগইন করুন',
+      'auth/weak-password': 'পাসওয়ার্ড ৬ অক্ষর দিন',
       'auth/wrong-password': 'ভুল পাসওয়ার্ড',
-      'auth/invalid-credential': 'ইমেইল বা পাসওয়ার্ড ভুল',
+      'auth/invalid-credential': 'ইমেইল/পাসওয়ার্ড ভুল',
       'auth/user-not-found': 'অ্যাকাউন্ট নেই',
       'auth/too-many-requests': 'অনেকবার চেষ্টা হয়েছে'
     };
@@ -387,7 +377,6 @@ async function askNotifPerm() {
   }
   function back(f, t) {
     f.classList.remove('on');
-    t.classList.add('from-l');
     requestAnimationFrame(function () { t.classList.add('on'); });
   }
   function hideAll() {
@@ -398,14 +387,12 @@ async function askNotifPerm() {
   function fmtD(ts) {
     var d = new Date(ts), t = new Date();
     if (d.toDateString() === t.toDateString()) return 'আজ';
-    var y = new Date(t); y.setDate(y.getDate() - 1);
-    if (d.toDateString() === y.toDateString()) return 'গতকাল';
     return d.toLocaleDateString('bn-BD', { day: 'numeric', month: 'short' });
   }
   function fmtTS(ts) { return new Date(ts).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true }); }
   function findU(uid) { return S.users.find(function (u) { return u.id === uid; }); }
   function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-  function avOf(u) { return (u && u.avatar) ? u.avatar : DB.uiAvatar(u ? u.name : 'U'); }
+  function avOf(u) { return (u && u.avatar) ? u.avatar : DB.uiAv(u ? u.name : 'U'); }
 
   function playRing() {
     stopRing();
@@ -417,7 +404,7 @@ async function askNotifPerm() {
         var o = c.createOscillator(), g = c.createGain();
         o.connect(g); g.connect(c.destination);
         o.frequency.value = [523, 659][i++ % 2];
-        g.gain.setValueAtTime(0.06, c.currentTime);
+        g.gain.setValueAtTime(0.08, c.currentTime);
         g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.5);
         o.start(); o.stop(c.currentTime + 0.5);
       }
@@ -480,15 +467,15 @@ async function askNotifPerm() {
     if (c) setCC(c);
     D.ccOv.classList.remove('on');
   });
-  setCC(guessCountry());
+  setCC(guessCC());
   D.ccBtn.addEventListener('click', function () { D.ccSearchIn.value = ''; renderCC(''); D.ccOv.classList.add('on'); });
   D.ccClose.addEventListener('click', function () { D.ccOv.classList.remove('on'); });
   D.ccSearchIn.addEventListener('input', function () { renderCC(D.ccSearchIn.value); });
 
   /* ইমেইল কোড */
   function emailReady() {
-    return typeof emailjs !== 'undefined' && _C.email && String(_C.email.publicKey).indexOf('YOUR') !== 0 &&
-      String(_C.email.serviceId).indexOf('YOUR') !== 0 && String(_C.email.templateId).indexOf('YOUR') !== 0;
+    return typeof emailjs !== 'undefined' && _C.email &&
+      String(_C.email.publicKey).indexOf('YOUR') !== 0;
   }
 
   async function sendCode() {
@@ -593,28 +580,25 @@ async function askNotifPerm() {
   /* মূল */
   function enterMain() {
     hideAll();
-    askNotifPerm();
     clearInterval(S.resendTimer);
     D.resendBtn.disabled = true;
     clearOTP();
+    askNotif();
     DB.setOn(S.user.uid);
 
     S.unsubUsers = DB.onUsers(S.user.uid, function (us) { S.users = us; renderChats(); renderContacts(); });
-        S.chatListUnsub = DB.onChatList(S.user.uid, function (c) {
+    S.chatListUnsub = DB.onChatList(S.user.uid, function (c) {
       S.chatList = c; renderChats();
-      /* ★ নতুন মেসেজ → ফোনের নোটিফিকেশন ★ */
       c.forEach(function (ch) {
         if (!ch.lastMsg || ch.lastMsg.sid === S.user.uid) return;
         var key = ch.id + '_' + (ch.lastMsg.ts || 0);
         if (S.notified[key]) return;
         S.notified[key] = 1;
-        var otherUid = ch.parts[0] === S.user.uid ? ch.parts[1] : ch.parts[0];
-        var u = findU(otherUid);
-        var isOpen = S.chatTarget && S.chatTarget.uid === otherUid && document.hasFocus();
+        var ou = ch.parts[0] === S.user.uid ? ch.parts[1] : ch.parts[0];
+        var u = findU(ou);
+        var isOpen = S.chatTarget && S.chatTarget.uid === ou && document.hasFocus();
         if (!isOpen) {
-          showNotif('💬 ' + (u ? u.name : 'নতুন মেসেজ'), ch.lastMsg.text || 'নতুন মেসেজ', 'msg_' + ch.id, function () {
-            if (findU(otherUid)) openChat(otherUid);
-          });
+          showNotif('💬 ' + (u ? u.name : 'নতুন মেসেজ'), ch.lastMsg.text || '', 'm' + ch.id);
           vibrate(200);
         }
       });
@@ -632,8 +616,8 @@ async function askNotifPerm() {
 
   function renderChats() {
     var h = '';
-    if (S.chatList.length === 0) {
-      if (S.users.length === 0) {
+    if (!S.chatList.length) {
+      if (!S.users.length) {
         h = '<div class="empty-st"><p>এখনো কোনো ব্যবহারকারী নেই</p></div>';
       } else {
         S.users.forEach(function (u) {
@@ -696,7 +680,7 @@ async function askNotifPerm() {
     S.callHistory.forEach(function (x) {
       var col = x.status === 'completed' ? 'var(--wa-teal)' : 'var(--wa-danger)';
       var dt = x.dir === 'out' ? 'আউটগোয়িং' : (x.status === 'completed' ? 'ইনকামিং' : 'মিসড কল');
-      h += '<div class="chat-row" data-uid="' + x.withUid + '" data-type="' + (x.type || 'audio') + '"><img class="av" src="' + esc(x.avatar || DB.uiAvatar(x.name)) + '"><div class="det"><h4>' + esc(x.name) + '</h4><p style="color:' + col + '">' + dt + '</p></div><div class="meta"><span class="time">' + (x.ts ? fmtD(x.ts) : '') + '</span></div></div>';
+      h += '<div class="chat-row" data-uid="' + x.withUid + '" data-type="' + (x.type || 'audio') + '"><img class="av" src="' + esc(x.avatar || DB.uiAv(x.name)) + '"><div class="det"><h4>' + esc(x.name) + '</h4><p style="color:' + col + '">' + dt + '</p></div><div class="meta"><span class="time">' + (x.ts ? fmtD(x.ts) : '') + '</span></div></div>';
     });
     D.tabCalls.innerHTML = h;
   }
@@ -709,7 +693,7 @@ async function askNotifPerm() {
     call(uid, r.getAttribute('data-type') || 'audio');
   });
 
-  /* ডায়ালার — স্মার্ট */
+  /* ডায়ালার */
   D.dialFab.addEventListener('click', function () { go(D.mainScr, D.dialScr, 'from-l'); });
   D.dialBack.addEventListener('click', function () { back(D.dialScr, D.mainScr); });
 
@@ -738,7 +722,7 @@ async function askNotifPerm() {
     try {
       var u = await DB.findByPhone(num);
       if (!u) {
-        D.dialResult.innerHTML = '<div class="dial-card"><p style="margin:0">এই নম্বরে কোনো অ্যাকাউন্ট নেই</p></div>';
+        D.dialResult.innerHTML = '<div class="dial-card"><p style="margin:0">এই নম্বরে কোনো অ্যাকাউন্ট নেই।<br><span style="font-size:12px">খোঁজা নম্বর: ' + esc(num) + '</span></p></div>';
         return;
       }
       D.dialResult.innerHTML =
@@ -818,7 +802,7 @@ async function askNotifPerm() {
         S.voiceMap[vid] = { b64: m.voice, mime: m.vmime || 'audio/webm', dur: m.dur || 0 };
         body = '<div class="vmsg"><button class="vplay" data-vid="' + vid + '">▶</button><div class="vbar"><div class="vfill"></div></div><span class="vdur">' + fmtT(m.dur || 0) + '</span></div>';
       } else body = esc(m.text);
-      h += '<div class="' + (out ? 'msg out' : 'msg in') + '"><div class="bbl">' + body + '</div><div class="mt">' + fmtTS(m.timestamp) + (out ? ' <span class="tick">\u2713\u2713</span>' : '') + '</div></div>';
+      h += '<div class="' + (out ? 'msg out' : 'msg in') + '"><div class="bbl">' + body + '</div><div class="mt">' + fmtTS(m.timestamp) + (out ? ' <span class="tick">✓✓</span>' : '') + '</div></div>';
     });
     D.msgsC.innerHTML = h;
     D.msgsC.scrollTop = D.msgsC.scrollHeight;
@@ -889,7 +873,7 @@ async function askNotifPerm() {
   /* ভয়েস */
   D.micBtn.addEventListener('click', async function () {
     if (!S.chatTarget) return;
-    if (typeof MediaRecorder === 'undefined') { toast('এই ব্রাউজারে সাপোর্ট নেই', 'err'); return; }
+    if (typeof MediaRecorder === 'undefined') { toast('রেকর্ড সাপোর্ট নেই', 'err'); return; }
     try { S.recStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
     catch (e) { toast('মাইকের অনুমতি দিন', 'err'); return; }
     S.recMime = '';
@@ -989,8 +973,8 @@ async function askNotifPerm() {
     q('#nItem').onclick = function () {
       var n = prompt('আপনার নাম:', u.name);
       if (n && n.trim()) {
-        DB.updateProfile(u.uid, { name: n.trim(), avatar: DB.uiAvatar(n.trim()) });
-        u.name = n.trim(); u.avatar = DB.uiAvatar(n.trim());
+        DB.updateProfile(u.uid, { name: n.trim(), avatar: DB.uiAv(n.trim()) });
+        u.name = n.trim(); u.avatar = DB.uiAv(n.trim());
         toast('নাম আপডেট হয়েছে', 'ok');
         renderSet();
       }
@@ -1002,7 +986,7 @@ async function askNotifPerm() {
       if (S.contactsUnsub) S.contactsUnsub();
       if (S.historyUnsub) S.historyUnsub();
       await DB.logout(S.user.uid);
-      S.user = null; S.chatMsgs = {}; S.chatList = []; S.contacts = []; S.callHistory = [];
+      S.user = null; S.chatMsgs = {}; S.chatList = []; S.contacts = []; S.callHistory = []; S.notified = {};
       hideAll();
       D.nameIn.value = ''; D.phoneIn.value = ''; D.regEmailIn.value = ''; D.regPassIn.value = '';
       D.loginEmailIn.value = ''; D.loginPassIn.value = '';
@@ -1102,7 +1086,7 @@ async function askNotifPerm() {
     } catch (e) {
       toast('মাইক/ক্যামেরার অনুমতি দিন', 'err');
       cleanPC(); resetCall();
-      S.callActive = false;
+      S.callActive = false; S.callPhase = 'idle';
       return;
     }
 
@@ -1136,7 +1120,7 @@ async function askNotifPerm() {
     } catch (e) {
       toast('কল ব্যর্থ', 'err');
       cleanPC(); resetCall();
-      S.callActive = false;
+      S.callActive = false; S.callPhase = 'idle';
     }
   }
 
@@ -1155,12 +1139,12 @@ async function askNotifPerm() {
     S.iAmCaller = false; S.wasConnected = false;
     S.callTarget = { uid: c.callerId, name: c.callerName, avatar: c.callerAvatar };
 
-    D.incAv.src = c.callerAvatar || DB.uiAvatar(c.callerName);
+    D.incAv.src = c.callerAvatar || DB.uiAv(c.callerName);
     D.incName.textContent = c.callerName || 'অজানা';
     D.incType.textContent = c.type === 'video' ? 'ভিডিও কল' : 'অডিও কল';
     D.incPop.classList.add('on');
     playRing();
-    showNotif('📞 ইনকামিং ' + (c.type === 'video' ? 'ভিডিও' : 'অডিও') + ' কল', c.callerName || 'অজানা', 'call_' + c.id);
+    showNotif('📞 ইনকামিং ' + (c.type === 'video' ? 'ভিডিও' : 'অডিও') + ' কল', c.callerName || 'অজানা', 'c' + c.id);
     vibrate([600, 300, 600, 300, 600]);
 
     S.incTimeout = setTimeout(function () {
@@ -1249,7 +1233,7 @@ async function askNotifPerm() {
     if (!S.callTarget || !S.user) return;
     DB.addCallLog(S.user.uid, {
       withUid: S.callTarget.uid, name: S.callTarget.name || 'অজানা',
-      avatar: S.callTarget.avatar || DB.uiAvatar(S.callTarget.name),
+      avatar: S.callTarget.avatar || DB.uiAv(S.callTarget.name),
       type: S.callType, dir: dir, status: st, dur: dur, ts: Date.now()
     });
   }
@@ -1275,6 +1259,9 @@ async function askNotifPerm() {
     if (typeof emailjs !== 'undefined' && _C.email && _C.email.publicKey) {
       emailjs.init({ publicKey: _C.email.publicKey });
     }
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(function () {});
+    }
     DB.onAuth(function (u) {
       if (u && !S.user) { S.user = u; enterMain(); }
     });
@@ -1283,8 +1270,7 @@ async function askNotifPerm() {
     if (t) { t.textContent = 'সেটআপ ত্রুটি: ' + e.message; t.className = 'show err'; }
   }
 
-  /* ★ ভার্সন ব্যাজ — টাইটেলে v6 দেখা গেলে নতুন কোড লোড হয়েছে ★ */
-  document.title = 'Personal Call • v6';
+  document.title = 'Personal Call • v7';
 
   window.addEventListener('beforeunload', function () {
     if (S.user) DB.setOff(S.user.uid);
