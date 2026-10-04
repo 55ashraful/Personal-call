@@ -1,7 +1,7 @@
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });
 
-/* ★ এই fetch handler ছাড়া Chrome অ্যাপ ইনস্টল করতে দেয় না ★ */
+/* Chrome অ্যাপ ইনস্টল করার জন্য এই fetch handler লাগবেই */
 self.addEventListener('fetch', function () {});
 
 self.addEventListener('notificationclick', function (e) {
