@@ -1,6 +1,5 @@
-var CACHE = 'pc-v2';
+var CACHE = 'pc-v3';
 var SHELL = ['/', '/index.html', '/app.js', '/config.js', '/manifest.json', '/icon-512.png'];
-var CDN_HOSTS = ['www.gstatic.com', 'cdn.jsdelivr.net'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
@@ -28,41 +27,23 @@ self.addEventListener('notificationclick', function (e) {
   );
 });
 
+/* অ্যাপ ফাইল: সবসময় নেট আগে — নেট না থাকলে ক্যাশ (অফলাইনে অ্যাপ খোলার জন্য) */
 self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
   var url = new URL(e.request.url);
-  var isApp = url.origin === location.origin;
-  var isCDN = CDN_HOSTS.indexOf(url.hostname) !== -1;
-  /* Firebase API, ImgBB ইত্যাদি নিজের মতো চলবে — আমরা ধরব না */
-  if (!isApp && !isCDN) return;
+  if (url.origin !== location.origin) return; /* Firebase/CDN নিজের মতো চলবে */
 
-  if (isCDN) {
-    /* CDN: ক্যাশ আগে, না থাকলে নেট */
-    e.respondWith(
-      caches.match(e.request).then(function (cached) {
-        return cached || fetch(e.request).then(function (resp) {
-          try {
-            var copy = resp.clone();
-            caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
-          } catch (err) {}
-          return resp;
-        });
-      })
-    );
-  } else {
-    /* অ্যাপ ফাইল: নেট আগে (সবসময় নতুন কোড), নেট না থাকলে ক্যাশ */
-    e.respondWith(
-      fetch(e.request).then(function (resp) {
-        try {
-          var copy = resp.clone();
-          caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
-        } catch (err) {}
-        return resp;
-      }).catch(function () {
-        return caches.match(e.request).then(function (cached) {
-          return cached || caches.match('/index.html');
-        });
-      })
-    );
-  }
+  e.respondWith(
+    fetch(e.request).then(function (resp) {
+      try {
+        var copy = resp.clone();
+        caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
+      } catch (err) {}
+      return resp;
+    }).catch(function () {
+      return caches.match(e.request).then(function (cached) {
+        return cached || caches.match('/index.html');
+      });
+    })
+  );
 });
