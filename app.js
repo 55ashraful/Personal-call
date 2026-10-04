@@ -118,6 +118,15 @@ var DB = (function () {
     return { id: s.docs[0].id, ...s.docs[0].data() };
   }
 
+  /* ★ একাধিক ফরম্যাটে একসাথে খোঁজা (+88017..., +880017... দুটোই) ★ */
+  async function findByPhones(list) {
+    var ok = (list || []).filter(function (p) { return /^\+\d{8,15}$/.test(p); });
+    if (!ok.length) return null;
+    var s = await _d.collection('users').where('phone', 'in', ok).limit(1).get();
+    if (s.empty) return null;
+    return { id: s.docs[0].id, ...s.docs[0].data() };
+  }
+
   async function addContact(uid, c) {
     await _d.collection('users').doc(uid).collection('contacts').doc(c.id).set({
       uid: c.id, name: c.name || 'কন্টাক্ট', phone: c.phone || '',
@@ -245,7 +254,8 @@ var DB = (function () {
     init: init, normPhone: normPhone, uiAv: uiAv, uploadImage: uploadImage,
     phoneExists: phoneExists, registerAccount: registerAccount, emailLogin: emailLogin,
     updateProfile: updateProfile, logout: logout, setOn: setOn, setOff: setOff,
-    onUsers: onUsers, findByPhone: findByPhone, addContact: addContact, removeContact: removeContact,
+    onUsers: onUsers, findByPhone: findByPhone, findByPhones: findByPhones,
+    addContact: addContact, removeContact: removeContact,
     onContacts: onContacts, chatId: chatId, sendMsg: sendMsg, onMsgs: onMsgs, onChatList: onChatList,
     setTyping: setTyping, clearTyping: clearTyping, onTyping: onTyping,
     mkCall: mkCall, watchCall: watchCall, updCall: updCall,
@@ -335,6 +345,7 @@ async function askNotif() {
     verifyOtpBtn: q('#verifyOtpBtn'), resendBtn: q('#resendBtn'), resendTimer: q('#resendTimer'),
     tabChats: q('#tabChats'), tabCalls: q('#tabCalls'), tabContacts: q('#tabContacts'),
     dialFab: q('#dialFab'), dialBack: q('#dialBack'), dialNumIn: q('#dialNumIn'),
+    dialSub: q('#dialSub'),
     keypad: q('#keypad'), dialSearchBtn: q('#dialSearchBtn'), dialResult: q('#dialResult'),
     chatAv: q('#chatAv'), chatNameH: q('#chatNameH'), chatStatusP: q('#chatStatusP'),
     chatBackBtn: q('#chatBackBtn'), chatCallBtn: q('#chatCallBtn'), chatVidBtn: q('#chatVidBtn'),
@@ -506,12 +517,15 @@ async function askNotif() {
   D.regBtn.addEventListener('click', async function () {
     var name = D.nameIn.value.trim();
     var nnum = D.phoneIn.value.replace(/\D/g, '');
-    var full = S.ccCountry ? S.ccCountry[3] + nnum : nnum;
+    /* ★ ফিক্স: শুরুর শূন্য (0) কেটে দেশের কোড যোগ হয়
+       01749799621 → +8801749799621 (আগে ভুলে +88001749799621 হতো) ★ */
+    var natClean = nnum.replace(/^0+/, '');
+    var full = S.ccCountry ? S.ccCountry[3] + natClean : '+' + natClean;
     var email = D.regEmailIn.value.trim();
     var pass = D.regPassIn.value;
 
     if (!name) { toast('নাম দিন', 'err'); return; }
-    if (nnum.length < 6) { toast('সঠিক মোবাইল নম্বর দিন', 'err'); return; }
+    if (!natClean || natClean.length < 6 || natClean.length > 14) { toast('সঠিক মোবাইল নম্বর দিন (যেমন: 01749799621)', 'err'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('সঠিক ইমেইল দিন', 'err'); return; }
     if (pass.length < 6) { toast('পাসওয়ার্ড ৬ অক্ষর দিন', 'err'); return; }
 
@@ -701,7 +715,12 @@ async function askNotif() {
   });
 
   /* ডায়ালার */
-  D.dialFab.addEventListener('click', function () { go(D.mainScr, D.dialScr, 'from-l'); });
+  D.dialFab.addEventListener('click', function () {
+    D.dialNumIn.value = '';
+    D.dialResult.innerHTML = '';
+    D.dialSub.textContent = '';
+    go(D.mainScr, D.dialScr, 'from-l');
+  });
   D.dialBack.addEventListener('click', function () { back(D.dialScr, D.mainScr); });
 
   D.keypad.querySelectorAll('.key').forEach(function (k) {
@@ -714,22 +733,36 @@ async function askNotif() {
 
   D.dialSearchBtn.addEventListener('click', async function () {
     var raw = D.dialNumIn.value.replace(/[\s\-()]/g, '');
-    var num;
-    if (raw.charAt(0) === '+') num = raw;
-    else if (raw.indexOf('880') === 0) num = '+' + raw;
-    else if (raw.charAt(0) === '0' && S.ccCountry) num = S.ccCountry[3] + raw.substring(1);
-    else if (S.ccCountry) num = S.ccCountry[3] + raw;
-    else num = '+' + raw;
-    num = DB.normPhone(num);
+    /* ★ একাধিক ফরম্যাটে খোঁজা — পুরনো অ্যাকাউন্ট (ডাবল জিরোসহ) থাকলেও পাবে ★ */
+    var tries = [];
+    if (raw.charAt(0) === '+') {
+      tries.push(raw);
+    } else {
+      var nat = raw.replace(/\D/g, '');
+      var natNoZero = nat.replace(/^0+/, '');
+      var cc = S.ccCountry ? S.ccCountry[3] : '+880';
+      if (nat.indexOf('880') === 0) {
+        tries.push('+' + nat);
+        var rest = nat.substring(3).replace(/^0+/, '');
+        if (rest) tries.push('+880' + rest);
+      } else if (natNoZero) {
+        tries.push(cc + natNoZero);
+        tries.push(cc + '0' + natNoZero);
+      }
+    }
 
-    if (!/^\+\d{8,15}$/.test(num)) { toast('সঠিক নম্বর দিন', 'err'); return; }
+    if (!tries.length) { toast('সঠিক নম্বর দিন', 'err'); return; }
+
+    /* ★ খোঁজা নম্বর উপরে টপবারে দেখাবে ★ */
+    D.dialSub.textContent = 'খোঁজা নম্বর: ' + tries[0];
+
     D.dialSearchBtn.disabled = true;
     D.dialSearchBtn.textContent = 'খোঁজা হচ্ছে...';
     D.dialResult.innerHTML = '';
     try {
-      var u = await DB.findByPhone(num);
+      var u = await DB.findByPhones(tries);
       if (!u) {
-        D.dialResult.innerHTML = '<div class="dial-card"><p style="margin:0">এই নম্বরে কোনো অ্যাকাউন্ট নেই।<br><span style="font-size:12px">খোঁজা নম্বর: ' + esc(num) + '</span></p></div>';
+        D.dialResult.innerHTML = '<div class="dial-card"><p style="margin:0">এই নম্বরে কোনো অ্যাকাউন্ট নেই।</p></div>';
         return;
       }
       D.dialResult.innerHTML =
@@ -1042,6 +1075,7 @@ async function askNotif() {
     D.callVid.style.display = 'none'; D.callInfo.style.display = '';
     D.callTimer.style.display = 'none'; D.ringCircles.style.display = 'none';
     D.muteBtn.classList.remove('off'); D.camBtn.classList.remove('off');
+    D.pipWrap.classList.remove('off');
     if (S.callTimerIv) { clearInterval(S.callTimerIv); S.callTimerIv = null; }
     D.callScr.classList.remove('on');
   }
@@ -1076,6 +1110,7 @@ async function askNotif() {
 
     S.callActive = true; S.callType = type; S.callPhase = 'calling';
     S.callTarget = u; S.iAmCaller = true; S.wasConnected = false;
+    S.isMuted = false; S.isCamOff = false;
 
     D.callBg.style.backgroundImage = 'url(' + avOf(u) + ')';
     D.callAv.src = avOf(u);
@@ -1277,7 +1312,7 @@ async function askNotif() {
     if (t) { t.textContent = 'সেটআপ ত্রুটি: ' + e.message; t.className = 'show err'; }
   }
 
-  document.title = 'Personal Call • v8';
+  document.title = 'Personal Call • v9';
 
   window.addEventListener('beforeunload', function () {
     if (S.user) DB.setOff(S.user.uid);
