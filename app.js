@@ -12,8 +12,6 @@ var DB = (function () {
     if (typeof _C === 'undefined' || !_C.fb || !_C.fb.apiKey) {
       throw new Error('config.js পাওয়া যায়নি বা ভুল আছে');
     }
-        /* ★ অফলাইন: চ্যাট ফোনে সেভ থাকবে, নেট এলে অটো সিঙ্ক ★ */
-    _d.enablePersistence({ synchronizeTabs: true }).catch(function () {});
     firebase.initializeApp(_C.fb);
     _a = firebase.auth();
     _d = firebase.firestore();
@@ -239,7 +237,7 @@ var DB = (function () {
         function (e) { console.error('onHistory:', e); });
   }
 
-    function onAuth(cb) {
+  function onAuth(cb) {
     _a.onAuthStateChanged(async function (u) {
       if (u) {
         var d = await _d.collection('users').doc(u.uid).get();
@@ -248,8 +246,6 @@ var DB = (function () {
           var nm = u.displayName || 'ব্যবহারকারী';
           cb({ uid: u.uid, name: nm, email: u.email || '', phone: '', avatar: uiAv(nm) });
         }
-      } else {
-        cb(null);
       }
     });
   }
@@ -1298,16 +1294,7 @@ async function askNotif() {
   });
   D.chatCallBtn.addEventListener('click', function () { if (S.chatTarget) call(S.chatTarget.uid, 'audio'); });
   D.chatVidBtn.addEventListener('click', function () { if (S.chatTarget) call(S.chatTarget.uid, 'video'); });
-     /* ★ লোডিং স্ক্রিন সরানো ★ */
-  function hideBoot() {
-    var b = document.getElementById('bootLoader');
-    if (b) b.style.display = 'none';
-  }
-  setTimeout(hideBoot, 8000); /* নিরাপত্তা: সবচেয়ে খারাপেও ৮ সেকেন্ডে সরবে */
 
-  window.addEventListener('offline', function () { toast('📴 অফলাইন — মেসেজ সেভ হবে, নেট এলে পাঠানো হবে', 'ok'); });
-  window.addEventListener('online', function () { toast('📶 অনলাইন — সিঙ্ক হচ্ছে', 'ok'); });
-   
   /* ইনিশিয়ালাইজ */
   try {
     DB.init();
@@ -1317,17 +1304,15 @@ async function askNotif() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(function () {});
     }
-     DB.onAuth(function (u) {
-      hideBoot();
+    DB.onAuth(function (u) {
       if (u && !S.user) { S.user = u; enterMain(); }
-      /* u == null হলে রেজিস্ট্রেশন স্ক্রিন দেখাবে (ডিফল্ট খোলা থাকে) */
     });
   } catch (e) {
     var t = document.getElementById('toast');
     if (t) { t.textContent = 'সেটআপ ত্রুটি: ' + e.message; t.className = 'show err'; }
   }
 
-    document.title = 'Personal Call • v10';
+  document.title = 'Personal Call • v9';
 
   window.addEventListener('beforeunload', function () {
     if (S.user) DB.setOff(S.user.uid);
