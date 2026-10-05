@@ -1,8 +1,6 @@
 window.onerror = function (m, s, l) {
   var t = document.getElementById('toast');
   if (t) { t.textContent = '⚠ ' + m + ' (লাইন ' + l + ')'; t.className = 'show err'; }
-  var b = document.getElementById('bootLoader');
-  if (b) b.classList.add('hide');
   return false;
 };
 
@@ -17,7 +15,7 @@ var DB = (function () {
     firebase.initializeApp(_C.fb);
     _a = firebase.auth();
     _d = firebase.firestore();
-    /* অফলাইন: চ্যাট ফোনে সেভ থাকে, নেট এলে অটো সিঙ্ক */
+    /* ★ অফলাইন: চ্যাট ফোনে সেভ থাকে, অফলাইনে লেখা মেসেজ নেট এলে অটো যায় ★ */
     _d.enablePersistence({ synchronizeTabs: true }).catch(function () {});
   }
 
@@ -240,18 +238,25 @@ var DB = (function () {
         function (e) { console.error('onHistory:', e); });
   }
 
+  /* ★ অফলাইন-নিরাপদ প্রোফাইল লোড: ৩ সেকেন্ডে না পেলেও লগইন দেখাবে ★ */
+  function getUserDoc(u) {
+    var fallback = function () {
+      var nm = u.displayName || 'ব্যবহারকারী';
+      return { uid: u.uid, name: nm, email: u.email || '', phone: '', avatar: uiAv(nm) };
+    };
+    return Promise.race([
+      _d.collection('users').doc(u.uid).get(),
+      new Promise(function (res) { setTimeout(function () { res(null); }, 3000); })
+    ]).then(function (d) {
+      if (d && d.exists) return { uid: u.uid, ...d.data() };
+      return fallback();
+    }).catch(fallback);
+  }
+
   function onAuth(cb) {
     _a.onAuthStateChanged(async function (u) {
-      if (u) {
-        var d = await _d.collection('users').doc(u.uid).get();
-        if (d.exists) cb({ uid: u.uid, ...d.data() });
-        else {
-          var nm = u.displayName || 'ব্যবহারকারী';
-          cb({ uid: u.uid, name: nm, email: u.email || '', phone: '', avatar: uiAv(nm) });
-        }
-      } else {
-        cb(null);
-      }
+      if (u) cb(await getUserDoc(u));
+      else cb(null);
     });
   }
 
@@ -290,13 +295,6 @@ async function askNotif() {
 /* ================= অ্যাপ ================= */
 (function () {
   'use strict';
-
-  /* লোডিং স্ক্রিন সরানো */
-  function hideBoot() {
-    var b = document.getElementById('bootLoader');
-    if (b) b.classList.add('hide');
-  }
-  setTimeout(hideBoot, 5000);
 
   var COUNTRIES = [
     ['BD', '🇧🇩', 'বাংলাদেশ', '+880'], ['IN', '🇮🇳', 'ভারত', '+91'], ['PK', '🇵🇰', 'পাকিস্তান', '+92'],
@@ -413,6 +411,10 @@ async function askNotif() {
   function showPhone() {
     hideAll();
     requestAnimationFrame(function () { D.phoneScr.classList.add('on'); });
+  }
+  function showMain() {
+    hideAll();
+    requestAnimationFrame(function () { D.mainScr.classList.add('on'); });
   }
 
   function fmtT(s) { return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
@@ -642,7 +644,7 @@ async function askNotif() {
     S.historyUnsub = DB.onCallHistory(S.user.uid, function (h) { S.callHistory = h; renderHistory(); });
     S.unsubCalls = DB.onIncCall(S.user.uid, incoming);
 
-    requestAnimationFrame(function () { D.mainScr.classList.add('on'); });
+    showMain();
   }
 
   var CALL_SVG = '<svg viewBox="0 0 24 24"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg>';
@@ -1303,7 +1305,7 @@ async function askNotif() {
   D.chatCallBtn.addEventListener('click', function () { if (S.chatTarget) call(S.chatTarget.uid, 'audio'); });
   D.chatVidBtn.addEventListener('click', function () { if (S.chatTarget) call(S.chatTarget.uid, 'video'); });
 
-  /* ইনিশিয়ালাইজ */
+  /* ইনিশিয়ালাইজ — ★ কোনো লোডিং নেই, সরাসরি ★ */
   try {
     DB.init();
     if (typeof emailjs !== 'undefined' && _C.email && _C.email.publicKey) {
@@ -1313,24 +1315,21 @@ async function askNotif() {
       navigator.serviceWorker.register('/sw.js').catch(function () {});
     }
 
-    /* ★ অটো-লগইন: লগইন থাকলে সরাসরি মূল স্ক্রিন, না থাকলে রেজিস্ট্রেশন ★ */
+    /* লগইন থাকলে সরাসরি মূল স্ক্রিনে, না থাকলে রেজিস্ট্রেশন স্ক্রিনে */
     DB.onAuth(function (u) {
-      hideBoot();
       if (u && !S.user) { S.user = u; enterMain(); }
-      else if (!u) { showPhone(); }
     });
   } catch (e) {
-    hideBoot();
     showPhone();
     var t = document.getElementById('toast');
     if (t) { t.textContent = 'সেটআপ ত্রুটি: ' + e.message; t.className = 'show err'; }
   }
 
-  /* অফলাইন/অনলাইন জানানো */
-  window.addEventListener('offline', function () { toast('📴 অফলাইন — পুরনো মেসেজ দেখা যাবে, নেট এলে সিঙ্ক হবে', 'ok'); });
-  window.addEventListener('online', function () { toast('📶 অনলাইন — সিঙ্ক হচ্ছে', 'ok'); });
+  /* অফলাইন/অনলাইন */
+  window.addEventListener('offline', function () { toast('📴 অফলাইন — পুরনো চ্যাট দেখা যাবে, মেসেজ লিখলে জমা হবে', 'ok'); });
+  window.addEventListener('online', function () { toast('📶 অনলাইন — জমা মেসেজ পাঠানো হচ্ছে', 'ok'); });
 
-  document.title = 'Personal Call • v12';
+  document.title = 'Personal Call • v13';
 
   window.addEventListener('beforeunload', function () {
     if (S.user) DB.setOff(S.user.uid);
