@@ -1,6 +1,8 @@
 window.onerror = function (m, s, l) {
   var t = document.getElementById('toast');
   if (t) { t.textContent = '⚠ ' + m + ' (লাইন ' + l + ')'; t.className = 'show err'; }
+  var b = document.getElementById('bootLoader');
+  if (b) b.classList.add('hide');
   return false;
 };
 
@@ -15,6 +17,8 @@ var DB = (function () {
     firebase.initializeApp(_C.fb);
     _a = firebase.auth();
     _d = firebase.firestore();
+    /* অফলাইন: চ্যাট ফোনে সেভ থাকে, নেট এলে অটো সিঙ্ক */
+    _d.enablePersistence({ synchronizeTabs: true }).catch(function () {});
   }
 
   function uiAv(n) {
@@ -118,7 +122,6 @@ var DB = (function () {
     return { id: s.docs[0].id, ...s.docs[0].data() };
   }
 
-  /* ★ একাধিক ফরম্যাটে একসাথে খোঁজা (+88017..., +880017... দুটোই) ★ */
   async function findByPhones(list) {
     var ok = (list || []).filter(function (p) { return /^\+\d{8,15}$/.test(p); });
     if (!ok.length) return null;
@@ -246,6 +249,8 @@ var DB = (function () {
           var nm = u.displayName || 'ব্যবহারকারী';
           cb({ uid: u.uid, name: nm, email: u.email || '', phone: '', avatar: uiAv(nm) });
         }
+      } else {
+        cb(null);
       }
     });
   }
@@ -285,6 +290,13 @@ async function askNotif() {
 /* ================= অ্যাপ ================= */
 (function () {
   'use strict';
+
+  /* লোডিং স্ক্রিন সরানো */
+  function hideBoot() {
+    var b = document.getElementById('bootLoader');
+    if (b) b.classList.add('hide');
+  }
+  setTimeout(hideBoot, 5000);
 
   var COUNTRIES = [
     ['BD', '🇧🇩', 'বাংলাদেশ', '+880'], ['IN', '🇮🇳', 'ভারত', '+91'], ['PK', '🇵🇰', 'পাকিস্তান', '+92'],
@@ -332,7 +344,7 @@ async function askNotif() {
   var qa = function (s) { return document.querySelectorAll(s); };
 
   var D = {
-    toast: q('#toast'), secOv: q('#secOverlay'),
+    toast: q('#toast'),
     phoneScr: q('#phoneScr'), emailScr: q('#emailScr'), otpScr: q('#otpScr'),
     mainScr: q('#mainScr'), chatScr: q('#chatScr'), setScr: q('#setScr'),
     dialScr: q('#dialScr'), callScr: q('#callScr'), incPop: q('#incPop'),
@@ -397,6 +409,10 @@ async function askNotif() {
   }
   function hideAll() {
     qa('.scr').forEach(function (s) { s.classList.remove('on', 'from-l', 'slide-up'); });
+  }
+  function showPhone() {
+    hideAll();
+    requestAnimationFrame(function () { D.phoneScr.classList.add('on'); });
   }
 
   function fmtT(s) { return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
@@ -517,8 +533,6 @@ async function askNotif() {
   D.regBtn.addEventListener('click', async function () {
     var name = D.nameIn.value.trim();
     var nnum = D.phoneIn.value.replace(/\D/g, '');
-    /* ★ ফিক্স: শুরুর শূন্য (0) কেটে দেশের কোড যোগ হয়
-       01749799621 → +8801749799621 (আগে ভুলে +88001749799621 হতো) ★ */
     var natClean = nnum.replace(/^0+/, '');
     var full = S.ccCountry ? S.ccCountry[3] + natClean : '+' + natClean;
     var email = D.regEmailIn.value.trim();
@@ -718,7 +732,7 @@ async function askNotif() {
   D.dialFab.addEventListener('click', function () {
     D.dialNumIn.value = '';
     D.dialResult.innerHTML = '';
-    D.dialSub.textContent = '';
+    if (D.dialSub) D.dialSub.textContent = '';
     go(D.mainScr, D.dialScr, 'from-l');
   });
   D.dialBack.addEventListener('click', function () { back(D.dialScr, D.mainScr); });
@@ -733,7 +747,6 @@ async function askNotif() {
 
   D.dialSearchBtn.addEventListener('click', async function () {
     var raw = D.dialNumIn.value.replace(/[\s\-()]/g, '');
-    /* ★ একাধিক ফরম্যাটে খোঁজা — পুরনো অ্যাকাউন্ট (ডাবল জিরোসহ) থাকলেও পাবে ★ */
     var tries = [];
     if (raw.charAt(0) === '+') {
       tries.push(raw);
@@ -752,9 +765,7 @@ async function askNotif() {
     }
 
     if (!tries.length) { toast('সঠিক নম্বর দিন', 'err'); return; }
-
-    /* ★ খোঁজা নম্বর উপরে টপবারে দেখাবে ★ */
-    D.dialSub.textContent = 'খোঁজা নম্বর: ' + tries[0];
+    if (D.dialSub) D.dialSub.textContent = 'খোঁজা নম্বর: ' + tries[0];
 
     D.dialSearchBtn.disabled = true;
     D.dialSearchBtn.textContent = 'খোঁজা হচ্ছে...';
@@ -1027,10 +1038,7 @@ async function askNotif() {
       if (S.historyUnsub) S.historyUnsub();
       await DB.logout(S.user.uid);
       S.user = null; S.chatMsgs = {}; S.chatList = []; S.contacts = []; S.callHistory = []; S.notified = {};
-      hideAll();
-      D.nameIn.value = ''; D.phoneIn.value = ''; D.regEmailIn.value = ''; D.regPassIn.value = '';
-      D.loginEmailIn.value = ''; D.loginPassIn.value = '';
-      requestAnimationFrame(function () { D.phoneScr.classList.add('on'); });
+      showPhone();
       toast('লগআউট হয়েছে', 'ok');
     };
   }
@@ -1304,15 +1312,25 @@ async function askNotif() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(function () {});
     }
+
+    /* ★ অটো-লগইন: লগইন থাকলে সরাসরি মূল স্ক্রিন, না থাকলে রেজিস্ট্রেশন ★ */
     DB.onAuth(function (u) {
+      hideBoot();
       if (u && !S.user) { S.user = u; enterMain(); }
+      else if (!u) { showPhone(); }
     });
   } catch (e) {
+    hideBoot();
+    showPhone();
     var t = document.getElementById('toast');
     if (t) { t.textContent = 'সেটআপ ত্রুটি: ' + e.message; t.className = 'show err'; }
   }
 
-  document.title = 'Personal Call • v9';
+  /* অফলাইন/অনলাইন জানানো */
+  window.addEventListener('offline', function () { toast('📴 অফলাইন — পুরনো মেসেজ দেখা যাবে, নেট এলে সিঙ্ক হবে', 'ok'); });
+  window.addEventListener('online', function () { toast('📶 অনলাইন — সিঙ্ক হচ্ছে', 'ok'); });
+
+  document.title = 'Personal Call • v12';
 
   window.addEventListener('beforeunload', function () {
     if (S.user) DB.setOff(S.user.uid);
