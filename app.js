@@ -15,7 +15,6 @@ var DB = (function () {
     firebase.initializeApp(_C.fb);
     _a = firebase.auth();
     _d = firebase.firestore();
-    /* ★ অফলাইন: চ্যাট ফোনে সেভ থাকে, অফলাইনে লেখা মেসেজ নেট এলে অটো যায় ★ */
     _d.enablePersistence({ synchronizeTabs: true }).catch(function () {});
   }
 
@@ -110,14 +109,6 @@ var DB = (function () {
       .where(firebase.firestore.FieldPath.documentId(), '!=', uid)
       .onSnapshot(function (s) { cb(s.docs.map(function (d) { return { id: d.id, ...d.data() }; })); },
         function (e) { console.error('onUsers:', e); });
-  }
-
-  async function findByPhone(ph) {
-    ph = normPhone(ph);
-    if (!/^\+\d{8,15}$/.test(ph)) return null;
-    var s = await _d.collection('users').where('phone', '==', ph).limit(1).get();
-    if (s.empty) return null;
-    return { id: s.docs[0].id, ...s.docs[0].data() };
   }
 
   async function findByPhones(list) {
@@ -238,9 +229,8 @@ var DB = (function () {
         function (e) { console.error('onHistory:', e); });
   }
 
-  /* ★ অফলাইন-নিরাপদ প্রোফাইল লোড: ৩ সেকেন্ডে না পেলেও লগইন দেখাবে ★ */
   function getUserDoc(u) {
-    var fallback = function () {
+    var fb = function () {
       var nm = u.displayName || 'ব্যবহারকারী';
       return { uid: u.uid, name: nm, email: u.email || '', phone: '', avatar: uiAv(nm) };
     };
@@ -249,8 +239,8 @@ var DB = (function () {
       new Promise(function (res) { setTimeout(function () { res(null); }, 3000); })
     ]).then(function (d) {
       if (d && d.exists) return { uid: u.uid, ...d.data() };
-      return fallback();
-    }).catch(fallback);
+      return fb();
+    }).catch(fb);
   }
 
   function onAuth(cb) {
@@ -264,7 +254,7 @@ var DB = (function () {
     init: init, normPhone: normPhone, uiAv: uiAv, uploadImage: uploadImage,
     phoneExists: phoneExists, registerAccount: registerAccount, emailLogin: emailLogin,
     updateProfile: updateProfile, logout: logout, setOn: setOn, setOff: setOff,
-    onUsers: onUsers, findByPhone: findByPhone, findByPhones: findByPhones,
+    onUsers: onUsers, findByPhones: findByPhones,
     addContact: addContact, removeContact: removeContact,
     onContacts: onContacts, chatId: chatId, sendMsg: sendMsg, onMsgs: onMsgs, onChatList: onChatList,
     setTyping: setTyping, clearTyping: clearTyping, onTyping: onTyping,
@@ -322,6 +312,7 @@ async function askNotif() {
     resendTimer: null, resendSec: 60, notified: {},
     callActive: false, callType: 'video', callPhase: 'idle',
     callTarget: null, callDocId: null, iAmCaller: false, wasConnected: false,
+    endReason: null, logWritten: false,
     pc: null, callUnsub: null, candUnsub: null, outTimeout: null, incTimeout: null,
     isMuted: false, isCamOff: false, callStart: null, callTimerIv: null,
     localStream: null, ringCtx: null, ringIv: null,
@@ -364,10 +355,11 @@ async function askNotif() {
     inputWrap: q('#inputWrap'),
     recBar: q('#recBar'), recTime: q('#recTime'), recCancel: q('#recCancel'), recSend: q('#recSend'),
     setBackBtn: q('#setBackBtn'), setList: q('#setList'), setAvInput: q('#setAvInput'),
-    callBg: q('#callBg'), callVid: q('#callVid'), remVid: q('#remVid'), locVid: q('#locVid'), pipWrap: q('#pipWrap'),
+    callVid: q('#callVid'), remVid: q('#remVid'), locVid: q('#locVid'), pipWrap: q('#pipWrap'),
     remAudio: q('#remAudio'),
-    callInfo: q('#callInfo'), callAv: q('#callAv'), callNameH: q('#callNameH'), callStTxt: q('#callStTxt'), callTimer: q('#callTimer'), ringCircles: q('#ringCircles'),
-    muteBtn: q('#muteBtn'), camBtn: q('#camBtn'), endBtn: q('#endBtn'),
+    callAv: q('#callAv'), callNameH: q('#callNameH'), callTypeTxt: q('#callTypeTxt'),
+    callStTxt: q('#callStTxt'), callTimer: q('#callTimer'), ringCircles: q('#ringCircles'),
+    muteBtn: q('#muteBtn'), camBtn: q('#camBtn'), spkBtn: q('#spkBtn'), endBtn: q('#endBtn'),
     incAv: q('#incAv'), incName: q('#incName'), incType: q('#incType'), accBtn: q('#accBtn'), accIco: q('#accIco'), rejBtn: q('#rejBtn'),
     searchBtn: q('#searchBtn'), menuBtn: q('#menuBtn'),
     imgViewer: q('#imgViewer'), imgViewerImg: q('#imgViewerImg'), imgViewerClose: q('#imgViewerClose')
@@ -411,10 +403,6 @@ async function askNotif() {
   function showPhone() {
     hideAll();
     requestAnimationFrame(function () { D.phoneScr.classList.add('on'); });
-  }
-  function showMain() {
-    hideAll();
-    requestAnimationFrame(function () { D.mainScr.classList.add('on'); });
   }
 
   function fmtT(s) { return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
@@ -541,7 +529,7 @@ async function askNotif() {
     var pass = D.regPassIn.value;
 
     if (!name) { toast('নাম দিন', 'err'); return; }
-    if (!natClean || natClean.length < 6 || natClean.length > 14) { toast('সঠিক মোবাইল নম্বর দিন (যেমন: 01749799621)', 'err'); return; }
+    if (!natClean || natClean.length < 6 || natClean.length > 14) { toast('সঠিক মোবাইল নম্বর দিন', 'err'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('সঠিক ইমেইল দিন', 'err'); return; }
     if (pass.length < 6) { toast('পাসওয়ার্ড ৬ অক্ষর দিন', 'err'); return; }
 
@@ -644,7 +632,8 @@ async function askNotif() {
     S.historyUnsub = DB.onCallHistory(S.user.uid, function (h) { S.callHistory = h; renderHistory(); });
     S.unsubCalls = DB.onIncCall(S.user.uid, incoming);
 
-    showMain();
+    hideAll();
+    requestAnimationFrame(function () { D.mainScr.classList.add('on'); });
   }
 
   var CALL_SVG = '<svg viewBox="0 0 24 24"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg>';
@@ -854,6 +843,18 @@ async function askNotif() {
         var vid = 'v' + (++S.voiceSeq);
         S.voiceMap[vid] = { b64: m.voice, mime: m.vmime || 'audio/webm', dur: m.dur || 0 };
         body = '<div class="vmsg"><button class="vplay" data-vid="' + vid + '">▶</button><div class="vbar"><div class="vfill"></div></div><span class="vdur">' + fmtT(m.dur || 0) + '</span></div>';
+      } else if (m.type === 'call') {
+        /* ★ WhatsApp-স্টাইল কল লগ বাবল ★ */
+        var t = m.callType === 'video' ? 'ভিডিও কল' : 'অডিও কল';
+        var st = m.status === 'completed'
+          ? (m.dur ? 'সম্পন্ন • ' + fmtT(m.dur) : 'সম্পন্ন')
+          : (m.status === 'noanswer' ? 'কেউ ধরেনি' : (m.status === 'rejected' ? 'কাটা হয়েছে' : 'মিসড কল'));
+        var ico = m.callType === 'video' ? VID_SVG : CALL_SVG;
+        body = '<div style="display:flex;align-items:center;gap:10px;min-width:170px">' +
+          '<span style="width:38px;height:38px;background:rgba(255,255,255,.12);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
+          '<svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:#fff">' + ico.replace('<svg viewBox="0 0 24 24">', '').replace('</svg>', '') + '</svg></span>' +
+          '<span style="flex:1"><b style="display:block;font-size:14px">' + t + '</b>' +
+          '<span style="font-size:12px;color:#cfe9e2">' + st + '</span></span></div>';
       } else body = esc(m.text);
       h += '<div class="' + (out ? 'msg out' : 'msg in') + '"><div class="bbl">' + body + '</div><div class="mt">' + fmtTS(m.timestamp) + (out ? ' <span class="tick">✓✓</span>' : '') + '</div></div>';
     });
@@ -1082,9 +1083,10 @@ async function askNotif() {
 
   function resetCall() {
     D.locVid.srcObject = null; D.remVid.srcObject = null; D.remAudio.srcObject = null;
-    D.callVid.style.display = 'none'; D.callInfo.style.display = '';
+    D.callVid.style.display = 'none';
+    D.callAv.style.display = '';
     D.callTimer.style.display = 'none'; D.ringCircles.style.display = 'none';
-    D.muteBtn.classList.remove('off'); D.camBtn.classList.remove('off');
+    D.muteBtn.classList.remove('off'); D.camBtn.classList.remove('off'); D.spkBtn.classList.remove('off');
     D.pipWrap.classList.remove('off');
     if (S.callTimerIv) { clearInterval(S.callTimerIv); S.callTimerIv = null; }
     D.callScr.classList.remove('on');
@@ -1107,10 +1109,26 @@ async function askNotif() {
         startCT();
       } else if (pc.connectionState === 'failed') {
         toast('কানেকশন ব্যর্থ', 'err');
+        S.endReason = 'failed';
         endCall(true);
       }
     };
     return pc;
+  }
+
+  /* কল স্ক্রিন প্রস্তুত */
+  function prepCallUI(name, avatar, type) {
+    D.callNameH.textContent = name;
+    D.callTypeTxt.textContent = type === 'video' ? 'ভিডিও কল' : 'অডিও কল';
+    D.callStTxt.textContent = 'কল করা হচ্ছে...';
+    D.callTimer.style.display = 'none';
+    D.callAv.src = avatar || DB.uiAv(name);
+    D.callAv.style.display = type === 'video' ? 'none' : '';
+    D.callVid.style.display = 'none';
+    D.ringCircles.style.display = 'flex';
+    D.muteBtn.classList.remove('off'); D.camBtn.classList.remove('off'); D.spkBtn.classList.remove('off');
+    D.pipWrap.classList.remove('off');
+    D.callScr.classList.add('on');
   }
 
   async function call(uid, type) {
@@ -1120,20 +1138,17 @@ async function askNotif() {
 
     S.callActive = true; S.callType = type; S.callPhase = 'calling';
     S.callTarget = u; S.iAmCaller = true; S.wasConnected = false;
+    S.endReason = null; S.logWritten = false;
     S.isMuted = false; S.isCamOff = false;
 
-    D.callBg.style.backgroundImage = 'url(' + avOf(u) + ')';
-    D.callAv.src = avOf(u);
-    D.callNameH.textContent = u.name;
-    D.callStTxt.textContent = 'কল করা হচ্ছে...';
-    D.ringCircles.style.display = 'flex';
-    D.callScr.classList.add('on');
+    prepCallUI(u.name, avOf(u), type);
 
     try {
       S.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' ? { facingMode: 'user' } : false });
       if (type === 'video') {
         D.locVid.srcObject = S.localStream;
-        D.callVid.style.display = ''; D.callInfo.style.display = 'none';
+        D.callAv.style.display = 'none';
+        D.callVid.style.display = '';
       }
     } catch (e) {
       toast('মাইক/ক্যামেরার অনুমতি দিন', 'err');
@@ -1153,9 +1168,15 @@ async function askNotif() {
 
       playRing();
       S.callUnsub = DB.watchCall(S.callDocId, async function (d) {
-        if (d.status === 'rejected') { stopRing(); toast('কল কাটা হয়েছে', 'err'); endCall(false, true); }
-        else if (d.status === 'ended' && !S.wasConnected) { stopRing(); toast('কেউ ধরেনি', 'err'); endCall(false, true); }
-        else if (d.answer && !pc.currentRemoteDescription) {
+        if (d.status === 'rejected') {
+          stopRing(); toast('কল কাটা হয়েছে', 'err');
+          S.endReason = 'rejected';
+          endCall(false);
+        } else if (d.status === 'ended' && !S.wasConnected) {
+          stopRing(); toast('কেউ ধরেনি', 'err');
+          S.endReason = 'noanswer';
+          endCall(false);
+        } else if (d.answer && !pc.currentRemoteDescription) {
           try { await pc.setRemoteDescription(new RTCSessionDescription(d.answer)); D.callStTxt.textContent = 'সংযোগ হচ্ছে...'; } catch (e) {}
         }
       });
@@ -1166,7 +1187,8 @@ async function askNotif() {
         if (!S.wasConnected) {
           DB.updCall(S.callDocId, { status: 'noanswer' });
           stopRing(); toast('কেউ ধরেনি', 'err');
-          endCall(true, true);
+          S.endReason = 'noanswer';
+          endCall(false);
         }
       }, 45000);
     } catch (e) {
@@ -1189,6 +1211,7 @@ async function askNotif() {
     if (S.callActive || S.callPhase === 'incoming') { DB.updCall(c.id, { status: 'busy' }); return; }
     S.callDocId = c.id; S.callType = c.type; S.callPhase = 'incoming';
     S.iAmCaller = false; S.wasConnected = false;
+    S.endReason = null; S.logWritten = false;
     S.callTarget = { uid: c.callerId, name: c.callerName, avatar: c.callerAvatar };
 
     D.incAv.src = c.callerAvatar || DB.uiAv(c.callerName);
@@ -1216,18 +1239,16 @@ async function askNotif() {
     stopRing();
     S.callActive = true; S.callPhase = 'answering';
     var t = S.callTarget || {};
-    D.callBg.style.backgroundImage = 'url(' + (t.avatar || '') + ')';
-    D.callAv.src = t.avatar || '';
-    D.callNameH.textContent = t.name || '';
+    prepCallUI(t.name || '', t.avatar || '', S.callType);
     D.callStTxt.textContent = 'সংযোগ হচ্ছে...';
     D.ringCircles.style.display = 'none';
-    D.callScr.classList.add('on');
 
     try {
       S.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: S.callType === 'video' ? { facingMode: 'user' } : false });
       if (S.callType === 'video') {
         D.locVid.srcObject = S.localStream;
-        D.callVid.style.display = ''; D.callInfo.style.display = 'none';
+        D.callAv.style.display = 'none';
+        D.callVid.style.display = '';
       }
     } catch (e) {
       toast('মাইক/ক্যামেরার অনুমতি দিন', 'err');
@@ -1273,12 +1294,27 @@ async function askNotif() {
   function endCall(byRemote, skipLog) {
     var dur = S.wasConnected && S.callStart ? Math.floor((Date.now() - S.callStart) / 1000) : 0;
     if (!byRemote && S.callDocId) DB.updCall(S.callDocId, { status: 'ended' });
-    if (!skipLog) wLog(S.iAmCaller ? 'out' : 'in', S.wasConnected ? 'completed' : (S.iAmCaller ? 'noanswer' : 'missed'), dur);
+    if (!skipLog) wLog(S.iAmCaller ? 'out' : 'in', S.wasConnected ? 'completed' : (S.iAmCaller ? (S.endReason === 'rejected' ? 'rejected' : 'noanswer') : 'missed'), dur);
+    /* ★ কলার চ্যাটে কল লগ বাবল লেখে (একবারই) ★ */
+    if (S.iAmCaller && !S.logWritten && S.callDocId && S.callTarget && S.user) {
+      S.logWritten = true;
+      var st = S.wasConnected ? 'completed' : (S.endReason === 'rejected' ? 'rejected' : 'noanswer');
+      DB.sendMsg(DB.chatId(S.user.uid, S.callTarget.uid), {
+        senderId: S.user.uid,
+        type: 'call',
+        callType: S.callType,
+        status: st,
+        dur: dur,
+        text: '📞 ' + (S.callType === 'video' ? 'ভিডিও কল' : 'অডিও কল'),
+        timestamp: Date.now()
+      });
+    }
     stopRing(); tone(600, 300, 0.25);
     cleanPC(); resetCall();
     S.callActive = false; S.callPhase = 'idle';
     S.callTarget = null; S.callDocId = null;
     S.wasConnected = false; S.callStart = null;
+    S.endReason = null;
   }
 
   function wLog(dir, st, dur) {
@@ -1302,10 +1338,11 @@ async function askNotif() {
     if (S.localStream) S.localStream.getVideoTracks().forEach(function (t) { t.enabled = !S.isCamOff; });
     D.pipWrap.classList.toggle('off', S.isCamOff);
   });
+  D.spkBtn.addEventListener('click', function () { D.spkBtn.classList.toggle('off'); });
   D.chatCallBtn.addEventListener('click', function () { if (S.chatTarget) call(S.chatTarget.uid, 'audio'); });
   D.chatVidBtn.addEventListener('click', function () { if (S.chatTarget) call(S.chatTarget.uid, 'video'); });
 
-  /* ইনিশিয়ালাইজ — ★ কোনো লোডিং নেই, সরাসরি ★ */
+  /* ইনিশিয়ালাইজ */
   try {
     DB.init();
     if (typeof emailjs !== 'undefined' && _C.email && _C.email.publicKey) {
@@ -1314,8 +1351,6 @@ async function askNotif() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(function () {});
     }
-
-    /* লগইন থাকলে সরাসরি মূল স্ক্রিনে, না থাকলে রেজিস্ট্রেশন স্ক্রিনে */
     DB.onAuth(function (u) {
       if (u && !S.user) { S.user = u; enterMain(); }
     });
@@ -1325,11 +1360,10 @@ async function askNotif() {
     if (t) { t.textContent = 'সেটআপ ত্রুটি: ' + e.message; t.className = 'show err'; }
   }
 
-  /* অফলাইন/অনলাইন */
   window.addEventListener('offline', function () { toast('📴 অফলাইন — পুরনো চ্যাট দেখা যাবে, মেসেজ লিখলে জমা হবে', 'ok'); });
   window.addEventListener('online', function () { toast('📶 অনলাইন — জমা মেসেজ পাঠানো হচ্ছে', 'ok'); });
 
-  document.title = 'Personal Call • v13';
+  document.title = 'Personal Call • v14';
 
   window.addEventListener('beforeunload', function () {
     if (S.user) DB.setOff(S.user.uid);
