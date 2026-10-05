@@ -18,9 +18,17 @@ var _C = (function () {
     apiKey: "d617dab9d2117228e38549791d42104a"
   };
 
+  /* ★★★ রিংটোন — এখানে আপনার পছন্দের গান/mp3-এর সরাসরি লিংক বসান ★★★
+     যেমন: "https://example.com/myringtone.mp3"
+     খালি "" রাখলে ডিফল্ট বিপ-বিপ বাজবে */
+  var _r = {
+    incoming: ""
+  };
+
   return {
     get fb() { return _f; },
     get email() { return _e; },
-    get imgbb() { return _i; }
+    get imgbb() { return _i; },
+    get ring() { return _r; }
   };
 })();
