@@ -418,8 +418,19 @@ async function askNotif() {
   function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function avOf(u) { return (u && u.avatar) ? u.avatar : DB.uiAv(u ? u.name : 'U'); }
 
-  function playRing() {
+    function playRing() {
     stopRing();
+    /* ★ config.js-এ রিংটোন লিংক থাকলে সেটা বাজবে ★ */
+    try {
+      if (_C.ring && _C.ring.incoming) {
+        var au = new Audio(_C.ring.incoming);
+        au.loop = true;
+        S.ringAudio = au;
+        au.play().catch(function () {});
+        return;
+      }
+    } catch (e) {}
+    /* ডিফল্ট বিপ-বিপ */
     try {
       var c = S.ringCtx = new (window.AudioContext || window.webkitAudioContext)();
       var i = 0;
@@ -437,6 +448,7 @@ async function askNotif() {
   }
   function stopRing() {
     if (S.ringIv) { clearInterval(S.ringIv); S.ringIv = null; }
+    if (S.ringAudio) { try { S.ringAudio.pause(); } catch (e) {} S.ringAudio = null; }
     if (S.ringCtx) { try { S.ringCtx.close(); } catch (e) {} S.ringCtx = null; }
   }
   function tone(f1, f2, d) {
@@ -1020,7 +1032,8 @@ async function askNotif() {
       '<div class="set-item"><img src="' + esc(avOf(u)) + '" style="width:48px;height:48px;border-radius:50%;object-fit:cover"><div class="si-text"><h4>' + esc(u.name) + '</h4><p>' + esc(u.phone || u.email || '') + '</p></div></div>' +
       '<div class="set-item" id="pItem"><div class="si-icon" style="background:var(--wa-teal)">📷</div><div class="si-text"><h4>প্রোফাইল ছবি বদলান</h4><p>গ্যালারি থেকে</p></div></div>' +
       '<div class="set-item" id="nItem"><div class="si-icon" style="background:#3b82f6">✏️</div><div class="si-text"><h4>নাম পরিবর্তন করুন</h4><p>নাম সেট করুন</p></div></div>' +
-      '<div class="set-divider"></div><div class="set-header">অ্যাকাউন্ট</div>' +
+     '<div class="set-item" id="iItem"><div class="si-icon" style="background:#34a853">📲</div><div class="si-text"><h4>অ্যাপ হিসেবে ইনস্টল করুন</h4><p>হোম স্ক্রিনে অ্যাপ আইকন</p></div></div>' +
+     '<div class="set-divider"></div><div class="set-header">অ্যাকাউন্ট</div>' +
       '<div class="set-item" id="lItem"><div class="si-icon" style="background:var(--wa-danger)">🚪</div><div class="si-text"><h4>লগআউট</h4><p>বের হোন</p></div></div>';
 
     q('#pItem').onclick = function () { D.setAvInput.click(); };
@@ -1033,6 +1046,7 @@ async function askNotif() {
         renderSet();
       }
     };
+    q('#iItem').onclick = function () { installApp(); };
     q('#lItem').onclick = async function () {
       if (S.unsubUsers) S.unsubUsers();
       if (S.unsubCalls) S.unsubCalls();
@@ -1363,7 +1377,21 @@ async function askNotif() {
   window.addEventListener('offline', function () { toast('📴 অফলাইন — পুরনো চ্যাট দেখা যাবে, মেসেজ লিখলে জমা হবে', 'ok'); });
   window.addEventListener('online', function () { toast('📶 অনলাইন — জমা মেসেজ পাঠানো হচ্ছে', 'ok'); });
 
-  document.title = 'Personal Call • v14';
+    /* ★ আসল অ্যাপ ইনস্টল ইঞ্জিন — Chrome-এর Install ডায়ালগ ★ */
+  var deferredInstall = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferredInstall = e;
+  });
+  function installApp() {
+    if (deferredInstall) {
+      deferredInstall.prompt();
+      deferredInstall.userChoice.then(function () { deferredInstall = null; });
+    } else {
+      toast('ইনস্টল মেনু (⋮) থেকে "Install app" চাপুন। না দেখালে: সাইট ডাটা ক্লিয়ার করে ৩০ সেকেন্ড ব্যবহার করুন', 'ok');
+    }
+  }
+document.title = 'Personal Call • v14';
 
   window.addEventListener('beforeunload', function () {
     if (S.user) DB.setOff(S.user.uid);
