@@ -1,5 +1,5 @@
-var CACHE = 'pc-v4';
-var SHELL = ['/', '/index.html', '/app.js', '/config.js', '/manifest.json'];
+var CACHE = 'pc-v5';
+var SHELL = ['/', '/index.html', '/app.js', '/config.js', '/manifest.json', '/icon-512.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
@@ -27,7 +27,7 @@ self.addEventListener('notificationclick', function (e) {
   );
 });
 
-/* অফলাইনে অ্যাপ খোলার জন্য: নেট আগে, না পেলে ক্যাশ */
+/* অফলাইনে অ্যাপ খোলার জন্য: নেট আগে, না পেলে ফোনে সেভ করা কপি */
 self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
   var url = new URL(e.request.url);
