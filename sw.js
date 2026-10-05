@@ -1,5 +1,5 @@
-var CACHE = 'pc-v3';
-var SHELL = ['/', '/index.html', '/app.js', '/config.js', '/manifest.json', '/icon-512.png'];
+var CACHE = 'pc-v4';
+var SHELL = ['/', '/index.html', '/app.js', '/config.js', '/manifest.json'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
@@ -27,11 +27,11 @@ self.addEventListener('notificationclick', function (e) {
   );
 });
 
-/* অ্যাপ ফাইল: সবসময় নেট আগে — নেট না থাকলে ক্যাশ (অফলাইনে অ্যাপ খোলার জন্য) */
+/* অফলাইনে অ্যাপ খোলার জন্য: নেট আগে, না পেলে ক্যাশ */
 self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
   var url = new URL(e.request.url);
-  if (url.origin !== location.origin) return; /* Firebase/CDN নিজের মতো চলবে */
+  if (url.origin !== location.origin) return;
 
   e.respondWith(
     fetch(e.request).then(function (resp) {
