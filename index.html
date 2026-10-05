@@ -133,7 +133,8 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .call-vid video{width:100%;height:100%;object-fit:cover}
 .pip{position:absolute;top:60px;right:16px;width:100px;height:140px;border-radius:12px;overflow:hidden;border:2px solid rgba(255,255,255,.2);z-index:8;background:#1a1a1a}
 .pip video{width:100%;height:100%;object-fit:cover}
-.call-ctrls{position:relative;z-index:10;padding:30px 20px 50px;display:flex;align-items:center;justify-content:center;gap:20px;background:linear-gradient(to top,rgba(0,0,0,.8),transparent)}
+.pip.off::after{content:'ক্যামেরা বন্ধ';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#1f2c34;font-size:11px;color:#8696a0}
+.call-ctrls{position:relative;z-index:10;padding:30px 20px 50px;display:flex;align-items:center;justify-content:center;gap:20px;background:linear-gradient(to top,rgba(0,0,0,.8),transparent);margin-top:auto}
 .ccb{width:56px;height:56px;border-radius:50%;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:rgba(255,255,255,.12);color:#fff}
 .ccb svg{width:24px;height:24px;fill:#fff}
 .ccb .cl{font-size:9px;margin-top:3px;opacity:.8}
@@ -180,8 +181,6 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .dial-card .dc-btns button svg{width:16px;height:16px;fill:#fff}
 .dial-card .dc-btns button.ghost svg{fill:var(--wa-text)}
 .sec-label{padding:14px 20px 6px;font-size:12px;color:var(--wa-teal);font-weight:600}
-#secOverlay{position:fixed;inset:0;z-index:99998;pointer-events:none;display:none}
-#secOverlay.on{display:block}
 .sp{width:22px;height:22px;border:2.5px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
 .ring-circles{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:3}
@@ -194,18 +193,17 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .fab svg{width:24px;height:24px;fill:#fff}
 .empty-st{text-align:center;padding:60px 20px;color:var(--wa-text2)}
 .empty-st p{font-size:14px;line-height:1.6}
-.call-ctrls{margin-top:auto}
-.pip.off::after{content:'ক্যামেরা বন্ধ';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#1f2c34;font-size:11px;color:#8696a0}
+/* ★ স্টার্টআপ লোডিং স্ক্রিন — ৬ সেকেন্ডে নিজে সরে ★ */
+#bootLoader{position:fixed;inset:0;z-index:999999;background:#0b141a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:opacity .3s}
+#bootLoader.hide{opacity:0;pointer-events:none}
+#bootLoader .bl-spin{width:34px;height:34px;border:3px solid rgba(255,255,255,.2);border-top-color:#00a884;border-radius:50%;animation:spin .7s linear infinite}
+#bootLoader p{color:#8696a0;font-size:13px}
 </style>
 </head>
 <body>
-<div id="bootLoader" style="position:fixed;inset:0;z-index:999999;background:#0b141a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px">
-<span style="width:34px;height:34px;border:3px solid rgba(255,255,255,.2);border-top-color:#00a884;border-radius:50%;animation:spin .7s linear infinite;display:inline-block"></span>
-<p style="color:#8696a0;font-size:13px">লোড হচ্ছে...</p>
-</div>
+<div id="bootLoader"><span class="bl-spin"></span><p>লোড হচ্ছে...</p></div>
 <div id="app">
 <div id="toast"></div>
-<div id="secOverlay"></div>
 
 <section id="phoneScr" class="scr on">
 <div class="login-bg"></div>
@@ -371,6 +369,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 <div id="imgViewer"><button id="imgViewerClose">✕</button><img id="imgViewerImg" src="" alt=""></div>
 </div>
 
+<script>setTimeout(function(){var b=document.getElementById('bootLoader');if(b)b.classList.add('hide');},6000);</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
