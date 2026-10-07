@@ -1,4 +1,4 @@
-var CACHE = 'pc-v5';
+var CACHE = 'pc-v6';
 var SHELL = ['/', '/index.html', '/app.js', '/config.js', '/manifest.json', '/icon-512.png'];
 
 self.addEventListener('install', function (e) {
