@@ -1119,284 +1119,419 @@ async function askNotif() {
         S.wasConnected = true;
         stopRing(); tone(880, 1200, 0.25);
         D.callStTxt.textContent = 'সংযুক্ত';
-        D.ringCircles.style.display = 'none';
-        startCT();
+                S.callPhase = 'connected';
+        D.callStTxt.style.color = '';
+        if (S.callType === 'video') { D.callVid.style.display = ''; D.callAv.style.display = 'none'; }
+        startCallTimer();
       } else if (pc.connectionState === 'failed') {
-        toast('কানেকশন ব্যর্থ', 'err');
-        S.endReason = 'failed';
-        endCall(true);
+        if (S.callPhase !== 'ended') endCallNow('failed', false);
       }
     };
     return pc;
   }
 
-  /* কল স্ক্রিন প্রস্তুত */
-  function prepCallUI(name, avatar, type) {
-    D.callNameH.textContent = name;
-    D.callTypeTxt.textContent = type === 'video' ? 'ভিডিও কল' : 'অডিও কল';
-    D.callStTxt.textContent = 'কল করা হচ্ছে...';
-    D.callTimer.style.display = 'none';
-    D.callAv.src = avatar || DB.uiAv(name);
-    D.callAv.style.display = type === 'video' ? 'none' : '';
-    D.callVid.style.display = 'none';
-    D.ringCircles.style.display = 'flex';
-    D.muteBtn.classList.remove('off'); D.camBtn.classList.remove('off'); D.spkBtn.classList.remove('off');
-    D.pipWrap.classList.remove('off');
-    D.callScr.classList.add('on');
-  }
+  /* ================= কল সিস্টেম (সম্পূর্ণ) ================= */
 
-  async function call(uid, type) {
-    if (S.callActive) { toast('কল চলছে', 'err'); return; }
-    var u = findU(uid);
-    if (!u) { toast('ইউজার নেই', 'err'); return; }
-
-    S.callActive = true; S.callType = type; S.callPhase = 'calling';
-    S.callTarget = u; S.iAmCaller = true; S.wasConnected = false;
-    S.endReason = null; S.logWritten = false;
-    S.isMuted = false; S.isCamOff = false;
-
-    prepCallUI(u.name, avOf(u), type);
-
-    try {
-      S.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' ? { facingMode: 'user' } : false });
-      if (type === 'video') {
-        D.locVid.srcObject = S.localStream;
-        D.callAv.style.display = 'none';
-        D.callVid.style.display = '';
-      }
-    } catch (e) {
-      toast('মাইক/ক্যামেরার অনুমতি দিন', 'err');
-      cleanPC(); resetCall();
-      S.callActive = false; S.callPhase = 'idle';
-      return;
-    }
-
-    var pc = S.pc = mkPC('pending', 'caller');
-    try {
-      var off = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: type === 'video' });
-      await pc.setLocalDescription(off);
-      S.callDocId = await DB.mkCall({
-        callerId: S.user.uid, calleeId: uid,
-        callerName: S.user.name, callerAvatar: S.user.avatar, type: type
-      }, { type: off.type, sdp: off.sdp });
-
-      playRing();
-      S.callUnsub = DB.watchCall(S.callDocId, async function (d) {
-        if (d.status === 'rejected') {
-          stopRing(); toast('কল কাটা হয়েছে', 'err');
-          S.endReason = 'rejected';
-          endCall(false);
-        } else if (d.status === 'ended' && !S.wasConnected) {
-          stopRing(); toast('কেউ ধরেনি', 'err');
-          S.endReason = 'noanswer';
-          endCall(false);
-        } else if (d.answer && !pc.currentRemoteDescription) {
-          try { await pc.setRemoteDescription(new RTCSessionDescription(d.answer)); D.callStTxt.textContent = 'সংযোগ হচ্ছে...'; } catch (e) {}
-        }
-      });
-      S.candUnsub = DB.onCandidates(S.callDocId, 'callee', function (c) {
-        if (S.pc) S.pc.addIceCandidate(new RTCIceCandidate(c)).catch(function () {});
-      });
-      S.outTimeout = setTimeout(function () {
-        if (!S.wasConnected) {
-          DB.updCall(S.callDocId, { status: 'noanswer' });
-          stopRing(); toast('কেউ ধরেনি', 'err');
-          S.endReason = 'noanswer';
-          endCall(false);
-        }
-      }, 45000);
-    } catch (e) {
-      toast('কল ব্যর্থ', 'err');
-      cleanPC(); resetCall();
-      S.callActive = false; S.callPhase = 'idle';
-    }
-  }
-
-  function startCT() {
+  function startCallTimer() {
     if (S.callTimerIv) return;
     S.callStart = Date.now();
+    D.callStTxt.textContent = 'সংযুক্ত';
     D.callTimer.style.display = '';
+    D.callTimer.textContent = '00:00';
     S.callTimerIv = setInterval(function () {
       D.callTimer.textContent = fmtT(Math.floor((Date.now() - S.callStart) / 1000));
     }, 1000);
   }
 
-  function incoming(c) {
-    if (S.callActive || S.callPhase === 'incoming') { DB.updCall(c.id, { status: 'busy' }); return; }
-    S.callDocId = c.id; S.callType = c.type; S.callPhase = 'incoming';
-    S.iAmCaller = false; S.wasConnected = false;
-    S.endReason = null; S.logWritten = false;
-    S.callTarget = { uid: c.callerId, name: c.callerName, avatar: c.callerAvatar };
+  function stopCallTimer() {
+    if (S.callTimerIv) { clearInterval(S.callTimerIv); S.callTimerIv = null; }
+  }
 
-    D.incAv.src = c.callerAvatar || DB.uiAv(c.callerName);
-    D.incName.textContent = c.callerName || 'অজানা';
-    D.incType.textContent = c.type === 'video' ? 'ভিডিও কল' : 'অডিও কল';
+  function showMain() {
+    hideAll();
+    requestAnimationFrame(function () { D.mainScr.classList.add('on'); });
+  }
+
+  async function startLocalMedia() {
+    var wantVideo = S.callType === 'video';
+    try {
+      S.localStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: wantVideo ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } : false
+      });
+    } catch (e) {
+      if (wantVideo) toast('ক্যামেরা পাওয়া যায়নি — শুধু অডিও যাবে', 'ok');
+      S.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    }
+    S.isMuted = false;
+    S.isCamOff = false;
+  }
+
+  function setCallHeader(name, avatar, typeTxt) {
+    D.callNameH.textContent = name || '-';
+    D.callTypeTxt.textContent = typeTxt;
+    D.callAv.src = avatar || DB.uiAv(name);
+  }
+
+  async function getCallDoc(id) {
+    try {
+      var snap = await firebase.firestore().collection('calls').doc(id).get();
+      return snap.exists ? snap.data() : null;
+    } catch (e) { return null; }
+  }
+
+  function addMyLog(target, dir, type, status, dur) {
+    if (!S.user || !target) return;
+    DB.addCallLog(S.user.uid, {
+      name: target.name, avatar: target.avatar, withUid: target.uid,
+      dir: dir, type: type, status: status, dur: dur || 0, ts: Date.now()
+    });
+  }
+
+  function unsubAllMain() {
+    ['unsubUsers', 'chatListUnsub', 'contactsUnsub', 'historyUnsub', 'unsubCalls'].forEach(function (k) {
+      if (S[k]) { try { S[k](); } catch (e) {} S[k] = null; }
+    });
+    if (S.chatUnsub) { try { S.chatUnsub(); } catch (e) {} S.chatUnsub = null; }
+    if (S.typingUnsub) { try { S.typingUnsub(); } catch (e) {} S.typingUnsub = null; }
+  }
+
+  /* ---------- কল করা (কলার) ---------- */
+  async function call(uid, type) {
+    if (S.callActive) { toast('একটি কল ইতিমধ্যে চলছে', 'err'); return; }
+    var u = findU(uid);
+    if (!u) { toast('ইউজার পাওয়া যায়নি', 'err'); return; }
+    if (!u.online) { toast('ইউজার অফলাইনে আছে', 'err'); return; }
+
+    S.callActive = true;
+    S.callPhase = 'outgoing';
+    S.iAmCaller = true;
+    S.wasConnected = false;
+    S.logWritten = false;
+    S.endReason = null;
+    S.callType = type;
+    S.callTarget = { uid: uid, name: u.name, avatar: avOf(u) };
+
+    setCallHeader(u.name, avOf(u), type === 'video' ? 'ভিডিও কল' : 'অডিও কল');
+    D.callStTxt.textContent = 'কল করা হচ্ছে...';
+    D.callTimer.style.display = 'none';
+    D.ringCircles.style.display = '';
+    D.callVid.style.display = 'none';
+    D.callAv.style.display = '';
+    hideAll();
+    requestAnimationFrame(function () { D.callScr.classList.add('on'); });
+
+    try {
+      await startLocalMedia();
+      D.callTypeTxt.textContent = S.callType === 'video' ? 'ভিডিও কল' : 'অডিও কল';
+      if (S.callType === 'video') { D.locVid.srcObject = S.localStream; D.pipWrap.classList.remove('off'); }
+      playRingback();
+
+      S.callDocId = await DB.mkCall({
+        callerId: S.user.uid, calleeId: uid,
+        callerName: S.user.name || '', callerAvatar: S.user.avatar || '',
+        type: S.callType
+      }, null);
+
+      S.pc = mkPC(S.callDocId, 'caller');
+      var offer = await S.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: S.callType === 'video' });
+      await S.pc.setLocalDescription(offer);
+      await DB.updCall(S.callDocId, { offer: offer });
+
+      S.candUnsub = DB.onCandidates(S.callDocId, 'callee', function (c) {
+        if (S.pc && c && c.candidate) S.pc.addIceCandidate(c).catch(function () {});
+      });
+
+      S.callUnsub = DB.watchCall(S.callDocId, function (d) {
+        if (S.callPhase === 'ended') return;
+        if (d.status === 'accepted') {
+          S.callPhase = 'connecting';
+          D.ringCircles.style.display = 'none';
+          D.callStTxt.textContent = 'সংযোগ হচ্ছে...';
+          if (d.answer && S.pc && S.pc.signalingState === 'have-local-offer') {
+            S.pc.setRemoteDescription(d.answer).catch(function () {});
+          }
+        } else if (d.status === 'rejected') {
+          endCallNow('rejected', true);
+        } else if (d.status === 'ended') {
+          endCallNow(d.endReason || 'normal', true);
+        }
+      });
+
+      clearTimeout(S.outTimeout);
+      S.outTimeout = setTimeout(function () {
+        if (S.callPhase === 'outgoing') endCallNow('noanswer', false);
+      }, 45000);
+    } catch (e) {
+      toast(errMsG(e), 'err');
+      endCallNow('failed', false);
+    }
+  }
+
+  function playRingback() {
+    stopRing();
+    try {
+      var c = S.ringCtx = new (window.AudioContext || window.webkitAudioContext)();
+      function p() {
+        if (!S.ringCtx) return;
+        var o = c.createOscillator(), g = c.createGain();
+        o.connect(g); g.connect(c.destination);
+        o.frequency.value = 425;
+        g.gain.setValueAtTime(0.06, c.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 1.2);
+        o.start(); o.stop(c.currentTime + 1.2);
+      }
+      p();
+      S.ringIv = setInterval(p, 3000);
+    } catch (e) {}
+  }
+
+  /* ---------- ইনকামিং কল ---------- */
+  function incoming(c) {
+    if (!S.user) return;
+    if (S.callActive) { DB.updCall(c.id, { status: 'ended', endReason: 'busy' }); return; }
+
+    S.callActive = true;
+    S.callPhase = 'incoming';
+    S.iAmCaller = false;
+    S.wasConnected = false;
+    S.logWritten = false;
+    S.callDocId = c.id;
+    S.callType = c.type || 'audio';
+    S.incOffer = c.offer || null;
+    S.callTarget = { uid: c.callerId, name: c.callerName || 'অজানা', avatar: c.callerAvatar || '' };
+
+    D.incAv.src = S.callTarget.avatar || DB.uiAv(S.callTarget.name);
+    D.incName.textContent = S.callTarget.name;
+    D.incType.textContent = S.callType === 'video' ? 'ভিডিও কল' : 'অডিও কল';
+    D.accIco.innerHTML = S.callType === 'video'
+      ? '<path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>'
+      : '<path d="M6.62 10.79a15.053 15.053 0 0 0 6.59 6.59l2.2-2.2a1.003 1.003 0 0 1 1.01-.24c1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.1.31.03.66-.25 1.02l-2.2 2.2z"/>';
     D.incPop.classList.add('on');
     playRing();
-    showNotif('📞 ইনকামিং ' + (c.type === 'video' ? 'ভিডিও' : 'অডিও') + ' কল', c.callerName || 'অজানা', 'c' + c.id);
-    vibrate([600, 300, 600, 300, 600]);
+    vibrate([500, 300, 500, 300, 500, 300, 500, 300, 500, 300, 500, 300]);
+    showNotif('📞 ইনকামিং কল', S.callTarget.name, 'call' + c.id);
 
-    S.incTimeout = setTimeout(function () {
-      if (S.callPhase === 'incoming') {
+    /* কলার কেটে দিলে পপআপ সরে যাবে */
+    if (S.incWatchUnsub) { try { S.incWatchUnsub(); } catch (e) {} }
+    S.incWatchUnsub = DB.watchCall(c.id, function (d) {
+      if (S.callPhase !== 'incoming') return;
+      if (d.status === 'ended') {
+        clearTimeout(S.incTimeout);
         D.incPop.classList.remove('on');
-        stopRing();
-        DB.updCall(c.id, { status: 'missed' });
-        wLog('in', 'missed', 0);
-        S.callPhase = 'idle'; S.callDocId = null; S.callTarget = null;
+        stopRing(); vibrate(80);
+        addMyLog(S.callTarget, 'in', S.callType, 'missed', 0);
+        resetCallState();
+        toast('মিসড কল', 'err');
       }
-    }, 40000);
+    });
+
+    /* ৪৫ সেকেন্ডে কেউ ধরেনি = মিসড কল */
+    clearTimeout(S.incTimeout);
+    S.incTimeout = setTimeout(function () {
+      if (S.callPhase !== 'incoming') return;
+      D.incPop.classList.remove('on');
+      stopRing(); vibrate(80);
+      if (S.callDocId) DB.updCall(S.callDocId, { status: 'ended', endReason: 'noanswer' });
+      addMyLog(S.callTarget, 'in', S.callType, 'missed', 0);
+      resetCallState();
+      toast('মিসড কল', 'err');
+    }, 45000);
   }
 
-  D.accBtn.addEventListener('click', async function () {
+  /* ---------- কল একসেপ্ট (কলি) ---------- */
+  async function acceptCall() {
     if (S.callPhase !== 'incoming') return;
-    D.incPop.classList.remove('on');
+    clearTimeout(S.incTimeout);
+    if (S.incWatchUnsub) { try { S.incWatchUnsub(); } catch (e) {} S.incWatchUnsub = null; }
     stopRing();
-    S.callActive = true; S.callPhase = 'answering';
-    var t = S.callTarget || {};
-    prepCallUI(t.name || '', t.avatar || '', S.callType);
+    S.callPhase = 'connecting';
+    D.incPop.classList.remove('on');
+
+    setCallHeader(S.callTarget.name, S.callTarget.avatar, S.callType === 'video' ? 'ভিডিও কল' : 'অডিও কল');
     D.callStTxt.textContent = 'সংযোগ হচ্ছে...';
+    D.callTimer.style.display = 'none';
     D.ringCircles.style.display = 'none';
+    D.callVid.style.display = 'none';
+    D.callAv.style.display = '';
+    hideAll();
+    requestAnimationFrame(function () { D.callScr.classList.add('on'); });
 
     try {
-      S.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: S.callType === 'video' ? { facingMode: 'user' } : false });
-      if (S.callType === 'video') {
-        D.locVid.srcObject = S.localStream;
-        D.callAv.style.display = 'none';
-        D.callVid.style.display = '';
+      var tries = 0;
+      while (!S.incOffer && tries < 15) {
+        await new Promise(function (r) { setTimeout(r, 300); });
+        var d = await getCallDoc(S.callDocId);
+        if (d && d.offer) S.incOffer = d.offer;
+        tries++;
       }
-    } catch (e) {
-      toast('মাইক/ক্যামেরার অনুমতি দিন', 'err');
-      DB.updCall(S.callDocId, { status: 'rejected' });
-      cleanPC(); resetCall();
-      S.callActive = false; S.callPhase = 'idle';
-      return;
-    }
+      if (!S.incOffer) throw new Error('কল সংযোগ পাওয়া যায়নি — আবার চেষ্টা করুন');
 
-    var pc = S.pc = mkPC(S.callDocId, 'callee');
-    try {
-      var doc = await new Promise(function (r) {
-        var un = DB.watchCall(S.callDocId, function (d) { un(); r(d); });
-      });
-      await pc.setRemoteDescription(new RTCSessionDescription(doc.offer));
-      var ans = await pc.createAnswer();
-      await pc.setLocalDescription(ans);
-      await DB.updCall(S.callDocId, { status: 'accepted', answer: { type: ans.type, sdp: ans.sdp } });
+      await startLocalMedia();
+      if (S.callType === 'video') { D.locVid.srcObject = S.localStream; D.pipWrap.classList.remove('off'); }
+
+      S.pc = mkPC(S.callDocId, 'callee');
+      await S.pc.setRemoteDescription(S.incOffer);
+      var ans = await S.pc.createAnswer();
+      await S.pc.setLocalDescription(ans);
+      await DB.updCall(S.callDocId, { status: 'accepted', answer: ans });
+
       S.candUnsub = DB.onCandidates(S.callDocId, 'caller', function (c) {
-        if (S.pc) S.pc.addIceCandidate(new RTCIceCandidate(c)).catch(function () {});
+        if (S.pc && c && c.candidate) S.pc.addIceCandidate(c).catch(function () {});
       });
       S.callUnsub = DB.watchCall(S.callDocId, function (d) {
-        if (d.status === 'ended' || d.status === 'noanswer') endCall(false, true);
+        if (S.callPhase === 'ended') return;
+        if (d.status === 'ended') endCallNow(d.endReason || 'normal', true);
       });
     } catch (e) {
-      toast('একসেপ্ট ব্যর্থ', 'err');
-      DB.updCall(S.callDocId, { status: 'rejected' });
-      cleanPC(); resetCall();
-      S.callActive = false; S.callPhase = 'idle';
+      toast(errMsG(e), 'err');
+      endCallNow('failed', false);
     }
-  });
+  }
 
-  D.rejBtn.addEventListener('click', function () {
+  /* ---------- কল রিজেক্ট ---------- */
+  function rejectCall() {
     if (S.callPhase !== 'incoming') return;
-    D.incPop.classList.remove('on');
-    stopRing();
-    DB.updCall(S.callDocId, { status: 'rejected' });
-    wLog('in', 'rejected', 0);
     clearTimeout(S.incTimeout);
-    S.callPhase = 'idle'; S.callDocId = null; S.callTarget = null;
-  });
+    if (S.incWatchUnsub) { try { S.incWatchUnsub(); } catch (e) {} S.incWatchUnsub = null; }
+    stopRing();
+    D.incPop.classList.remove('on');
+    if (S.callDocId) DB.updCall(S.callDocId, { status: 'rejected' });
+    addMyLog(S.callTarget, 'in', S.callType, 'rejected', 0);
+    resetCallState();
+  }
 
-  function endCall(byRemote, skipLog) {
-    var dur = S.wasConnected && S.callStart ? Math.floor((Date.now() - S.callStart) / 1000) : 0;
-    if (!byRemote && S.callDocId) DB.updCall(S.callDocId, { status: 'ended' });
-    if (!skipLog) wLog(S.iAmCaller ? 'out' : 'in', S.wasConnected ? 'completed' : (S.iAmCaller ? (S.endReason === 'rejected' ? 'rejected' : 'noanswer') : 'missed'), dur);
-    /* ★ কলার চ্যাটে কল লগ বাবল লেখে (একবারই) ★ */
-    if (S.iAmCaller && !S.logWritten && S.callDocId && S.callTarget && S.user) {
-      S.logWritten = true;
-      var st = S.wasConnected ? 'completed' : (S.endReason === 'rejected' ? 'rejected' : 'noanswer');
-      DB.sendMsg(DB.chatId(S.user.uid, S.callTarget.uid), {
-        senderId: S.user.uid,
-        type: 'call',
-        callType: S.callType,
-        status: st,
-        dur: dur,
-        text: '📞 ' + (S.callType === 'video' ? 'ভিডিও কল' : 'অডিও কল'),
-        timestamp: Date.now()
-      });
+  /* ---------- কল শেষ ---------- */
+  function endCallNow(reason, fromRemote) {
+    if (S.callPhase === 'ended') return;
+    var wasConnected = S.wasConnected;
+    var dur = wasConnected && S.callStart ? Math.floor((Date.now() - S.callStart) / 1000) : 0;
+    var target = S.callTarget;
+    var type = S.callType;
+    var iAmCaller = S.iAmCaller;
+    var docId = S.callDocId;
+
+    S.callPhase = 'ended';
+    clearTimeout(S.outTimeout);
+    clearTimeout(S.incTimeout);
+    if (S.incWatchUnsub) { try { S.incWatchUnsub(); } catch (e) {} S.incWatchUnsub = null; }
+    stopRing();
+    if (docId && !fromRemote) DB.updCall(docId, { status: 'ended', endReason: reason });
+    cleanPC();
+    stopCallTimer();
+    resetCall();
+    D.incPop.classList.remove('on');
+
+    if (S.user && target) {
+      var st = wasConnected ? 'completed'
+        : (reason === 'rejected' ? 'rejected' : (iAmCaller ? 'noanswer' : 'missed'));
+      addMyLog(target, iAmCaller ? 'out' : 'in', type, st, dur);
+
+      /* চ্যাটে কল-বাবল — শুধু কলার লেখে (ডুপ্লিকেট এড়াতে) */
+      if (iAmCaller) {
+        var bst = wasConnected ? 'completed' : (reason === 'rejected' ? 'rejected' : 'noanswer');
+        DB.sendMsg(DB.chatId(S.user.uid, target.uid), {
+          senderId: S.user.uid, type: 'call', callType: type,
+          text: '📞 ' + (type === 'video' ? 'ভিডিও কল' : 'অডিও কল'),
+          status: bst, dur: dur, timestamp: Date.now()
+        });
+      }
     }
-    stopRing(); tone(600, 300, 0.25);
-    cleanPC(); resetCall();
-    S.callActive = false; S.callPhase = 'idle';
-    S.callTarget = null; S.callDocId = null;
-    S.wasConnected = false; S.callStart = null;
+    resetCallState();
+    showMain();
+  }
+
+  function resetCallState() {
+    S.callActive = false;
+    S.callPhase = 'idle';
+    S.callTarget = null;
+    S.callDocId = null;
+    S.iAmCaller = false;
+    S.wasConnected = false;
     S.endReason = null;
+    S.logWritten = false;
+    S.incOffer = null;
+    S.isMuted = false;
+    S.isCamOff = false;
+    S.callStart = null;
+    stopCallTimer();
   }
 
-  function wLog(dir, st, dur) {
-    if (!S.callTarget || !S.user) return;
-    DB.addCallLog(S.user.uid, {
-      withUid: S.callTarget.uid, name: S.callTarget.name || 'অজানা',
-      avatar: S.callTarget.avatar || DB.uiAv(S.callTarget.name),
-      type: S.callType, dir: dir, status: st, dur: dur, ts: Date.now()
-    });
-  }
-
-  D.endBtn.addEventListener('click', function () { endCall(true); });
+  /* ---------- কল বাটনগুলো ---------- */
+  D.endBtn.addEventListener('click', function () {
+    endCallNow(S.wasConnected ? 'normal' : (S.iAmCaller ? 'cancelled' : 'normal'), false);
+  });
   D.muteBtn.addEventListener('click', function () {
+    if (!S.localStream) return;
     S.isMuted = !S.isMuted;
+    S.localStream.getAudioTracks().forEach(function (t) { t.enabled = !S.isMuted; });
     D.muteBtn.classList.toggle('off', S.isMuted);
-    if (S.localStream) S.localStream.getAudioTracks().forEach(function (t) { t.enabled = !S.isMuted; });
+    toast(S.isMuted ? 'মাইক বন্ধ 🔇' : 'মাইক চালু 🎙️', 'ok');
   });
   D.camBtn.addEventListener('click', function () {
+    if (!S.localStream) return;
     S.isCamOff = !S.isCamOff;
+    S.localStream.getVideoTracks().forEach(function (t) { t.enabled = !S.isCamOff; });
     D.camBtn.classList.toggle('off', S.isCamOff);
-    if (S.localStream) S.localStream.getVideoTracks().forEach(function (t) { t.enabled = !S.isCamOff; });
     D.pipWrap.classList.toggle('off', S.isCamOff);
   });
-  D.spkBtn.addEventListener('click', function () { D.spkBtn.classList.toggle('off'); });
-  D.chatCallBtn.addEventListener('click', function () { if (S.chatTarget) call(S.chatTarget.uid, 'audio'); });
-  D.chatVidBtn.addEventListener('click', function () { if (S.chatTarget) call(S.chatTarget.uid, 'video'); });
+  D.spkBtn.addEventListener('click', function () {
+    S.speakerOn = !S.speakerOn;
+    D.spkBtn.classList.toggle('off', !S.speakerOn);
+    toast(S.speakerOn ? 'স্পিকার চালু 🔊' : 'স্পিকার বন্ধ', 'ok');
+  });
+  D.accBtn.addEventListener('click', acceptCall);
+  D.rejBtn.addEventListener('click', rejectCall);
+  D.chatCallBtn.addEventListener('click', function () {
+    if (S.chatTarget) call(S.chatTarget.uid, 'audio');
+  });
+  D.chatVidBtn.addEventListener('click', function () {
+    if (S.chatTarget) call(S.chatTarget.uid, 'video');
+  });
 
-  /* ইনিশিয়ালাইজ */
-  try {
-    DB.init();
-    if (typeof emailjs !== 'undefined' && _C.email && _C.email.publicKey) {
-      emailjs.init({ publicKey: _C.email.publicKey });
-    }
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(function () {});
-    }
-    DB.onAuth(function (u) {
-      if (u && !S.user) { S.user = u; enterMain(); }
-    });
-  } catch (e) {
-    showPhone();
-    var t = document.getElementById('toast');
-    if (t) { t.textContent = 'সেটআপ ত্রুটি: ' + e.message; t.className = 'show err'; }
-  }
-
-  window.addEventListener('offline', function () { toast('📴 অফলাইন — পুরনো চ্যাট দেখা যাবে, মেসেজ লিখলে জমা হবে', 'ok'); });
-  window.addEventListener('online', function () { toast('📶 অনলাইন — জমা মেসেজ পাঠানো হচ্ছে', 'ok'); });
-
-    /* ★ আসল অ্যাপ ইনস্টল ইঞ্জিন — Chrome-এর Install ডায়ালগ ★ */
-  var deferredInstall = null;
+  /* ---------- PWA ইনস্টল ---------- */
+  var deferredPrompt = null;
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
-    deferredInstall = e;
+    deferredPrompt = e;
   });
   function installApp() {
-    if (deferredInstall) {
-      deferredInstall.prompt();
-      deferredInstall.userChoice.then(function () { deferredInstall = null; });
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function () { deferredPrompt = null; });
     } else {
-      toast('ইনস্টল মেনু (⋮) থেকে "Install app" চাপুন। না দেখালে: সাইট ডাটা ক্লিয়ার করে ৩০ সেকেন্ড ব্যবহার করুন', 'ok');
+      toast('ব্রাউজার মেনু (⋮) থেকে "Add to Home screen" দিন', 'ok');
     }
   }
-document.title = 'Personal Call • v14';
+
+  /* ---------- স্টার্টআপ ---------- */
+  function hideBoot() {
+    var b = q('#bootLoader');
+    if (b) {
+      b.classList.add('hide');
+      setTimeout(function () { if (b.parentNode) b.parentNode.removeChild(b); }, 500);
+    }
+  }
+  window.addEventListener('load', function () { setTimeout(hideBoot, 1500); });
+  setTimeout(hideBoot, 6000);
+
+  try {
+    DB.init();
+  } catch (e) {
+    toast(e.message, 'err');
+    hideBoot();
+  }
+
+  var firstAuth = true;
+  DB.onAuth(function (u) {
+    S.user = u;
+    if (u) enterMain();
+    else if (!firstAuth) showPhone();
+    firstAuth = false;
+    hideBoot();
+  });
 
   window.addEventListener('beforeunload', function () {
     if (S.user) DB.setOff(S.user.uid);
-    if (S.callActive) endCall(true);
-    stopRing();
   });
-
 })();
