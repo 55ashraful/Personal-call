@@ -615,7 +615,8 @@ async function askNotif() {
   });
 
   /* মূল */
-  function enterMain() {
+    function enterMain() {
+    unsubAllMain();
     hideAll();
     clearInterval(S.resendTimer);
     D.resendBtn.disabled = true;
