@@ -4,6 +4,11 @@ window.onerror = function (m, s, l) {
   return false;
 };
 
+/* ================= লোকাল সেভ (অটো-লগইন, লগইন স্ক্রিন আর দেখাবে না) ================= */
+function saveLocalUser(u) { try { localStorage.setItem('pc_user', JSON.stringify(u)); } catch (e) {} }
+function getLocalUser() { try { return JSON.parse(localStorage.getItem('pc_user') || 'null'); } catch (e) { return null; } }
+function clearLocalUser() { try { localStorage.removeItem('pc_user'); } catch (e) {} }
+
 /* ================= DB ================= */
 var DB = (function () {
   var _a = null, _d = null;
@@ -87,7 +92,7 @@ var DB = (function () {
   async function emailLogin(email, pass) {
     var c = await _a.signInWithEmailAndPassword(email, pass);
     var d = await _d.collection('users').doc(c.user.uid).get();
-    if (d.exists) return { uid: c.user.uid, ...d.data() };
+    if (d.exists) return Object.assign({ uid: c.user.uid }, d.data());
     var nm = c.user.displayName || 'ব্যবহারকারী';
     return { uid: c.user.uid, name: nm, email: c.user.email || '', phone: '', avatar: uiAv(nm) };
   }
@@ -107,7 +112,7 @@ var DB = (function () {
   function onUsers(uid, cb) {
     return _d.collection('users')
       .where(firebase.firestore.FieldPath.documentId(), '!=', uid)
-      .onSnapshot(function (s) { cb(s.docs.map(function (d) { return { id: d.id, ...d.data() }; })); },
+      .onSnapshot(function (s) { cb(s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })); },
         function (e) { console.error('onUsers:', e); });
   }
 
@@ -116,7 +121,7 @@ var DB = (function () {
     if (!ok.length) return null;
     var s = await _d.collection('users').where('phone', 'in', ok).limit(1).get();
     if (s.empty) return null;
-    return { id: s.docs[0].id, ...s.docs[0].data() };
+    return Object.assign({ id: s.docs[0].id }, s.docs[0].data());
   }
 
   async function addContact(uid, c) {
@@ -133,7 +138,7 @@ var DB = (function () {
 
   function onContacts(uid, cb) {
     return _d.collection('users').doc(uid).collection('contacts')
-      .onSnapshot(function (s) { cb(s.docs.map(function (d) { return { id: d.id, ...d.data() }; })); },
+      .onSnapshot(function (s) { cb(s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })); },
         function (e) { console.error('onContacts:', e); });
   }
 
@@ -152,7 +157,7 @@ var DB = (function () {
     return _d.collection('chats').doc(cid).collection('messages')
       .orderBy('timestamp', 'asc')
       .onSnapshot(function (s) {
-        cb(s.docChanges().map(function (c) { return { t: c.type, d: { ...c.doc.data(), _id: c.doc.id } }; }));
+        cb(s.docChanges().map(function (c) { return { t: c.type, d: Object.assign({}, c.doc.data(), { _id: c.doc.id }) }; }));
       }, function (e) { console.error('onMsgs:', e); });
   }
 
@@ -160,7 +165,7 @@ var DB = (function () {
     return _d.collection('chats')
       .where('parts', 'array-contains', uid)
       .onSnapshot(function (s) {
-        var a = s.docs.map(function (d) { return { id: d.id, ...d.data() }; });
+        var a = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
         a.sort(function (x, y) {
           var tx = x.updated && x.updated.toMillis ? x.updated.toMillis() : 0;
           var ty = y.updated && y.updated.toMillis ? y.updated.toMillis() : 0;
@@ -214,7 +219,7 @@ var DB = (function () {
     return _d.collection('calls')
       .where('calleeId', '==', uid).where('status', '==', 'ringing')
       .onSnapshot(function (s) {
-        s.docChanges().forEach(function (c) { if (c.type === 'added') cb({ id: c.doc.id, ...c.doc.data() }); });
+        s.docChanges().forEach(function (c) { if (c.type === 'added') cb(Object.assign({ id: c.doc.id }, c.doc.data())); });
       }, function (e) { console.error('onIncCall:', e); });
   }
 
@@ -225,21 +230,30 @@ var DB = (function () {
   function onCallHistory(uid, cb) {
     return _d.collection('users').doc(uid).collection('callHistory')
       .orderBy('ts', 'desc').limit(40)
-      .onSnapshot(function (s) { cb(s.docs.map(function (d) { return { id: d.id, ...d.data() }; })); },
+      .onSnapshot(function (s) { cb(s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })); },
         function (e) { console.error('onHistory:', e); });
   }
 
+  /* ★ ক্যাশ থাকলে সাথে সাথে রিটার্ন — অ্যাপ তৎক্ষণাৎ খোলে ★ */
   function getUserDoc(u) {
+    var cached = getLocalUser();
+    if (cached && cached.uid === u.uid) {
+      _d.collection('users').doc(u.uid).get().then(function (d) {
+        if (d && d.exists) saveLocalUser(Object.assign({ uid: u.uid }, d.data()));
+      }).catch(function () {});
+      return Promise.resolve(cached);
+    }
     var fb = function () {
       var nm = u.displayName || 'ব্যবহারকারী';
       return { uid: u.uid, name: nm, email: u.email || '', phone: '', avatar: uiAv(nm) };
     };
     return Promise.race([
       _d.collection('users').doc(u.uid).get(),
-      new Promise(function (res) { setTimeout(function () { res(null); }, 3000); })
+      new Promise(function (res) { setTimeout(function () { res(null); }, 4000); })
     ]).then(function (d) {
-      if (d && d.exists) return { uid: u.uid, ...d.data() };
-      return fb();
+      var doc = (d && d.exists) ? Object.assign({ uid: u.uid }, d.data()) : fb();
+      saveLocalUser(doc);
+      return doc;
     }).catch(fb);
   }
 
@@ -277,9 +291,11 @@ async function askNotif() {
   if ('Notification' in window && Notification.permission === 'default') {
     try { await Notification.requestPermission(); } catch (e) {}
   }
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(function () {});
-  }
+}
+
+/* ★ PWA ইনস্টলের জন্য Service Worker সাথে সাথে রেজিস্টার ★ */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(function () {});
 }
 
 /* ================= অ্যাপ ================= */
@@ -307,15 +323,16 @@ async function askNotif() {
     user: null, users: [], chatList: [], chatMsgs: {}, contacts: [], callHistory: [],
     chatTarget: null, chatUnsub: null, typingUnsub: null, typingTimeout: null,
     chatListUnsub: null, contactsUnsub: null, historyUnsub: null,
-    unsubUsers: null, unsubCalls: null,
+    unsubUsers: null, unsubCalls: null, incWatchUnsub: null,
     ccCountry: null, pendingReg: null, emailCode: null, codeExp: 0,
     resendTimer: null, resendSec: 60, notified: {},
+    mainEntered: false,
     callActive: false, callType: 'video', callPhase: 'idle',
     callTarget: null, callDocId: null, iAmCaller: false, wasConnected: false,
-    endReason: null, logWritten: false,
+    endReason: null, logWritten: false, incOffer: null,
     pc: null, callUnsub: null, candUnsub: null, outTimeout: null, incTimeout: null,
     isMuted: false, isCamOff: false, callStart: null, callTimerIv: null,
-    localStream: null, ringCtx: null, ringIv: null,
+    localStream: null, remoteStream: null, ringCtx: null, ringIv: null, ringAudio: null, speakerOn: true,
     mediaRecorder: null, recChunks: [], recStream: null, recMime: '',
     recStart: 0, recTimerIv: null,
     voiceSeq: 0, voiceMap: {}, playingAudio: null, playingBtn: null
@@ -325,7 +342,8 @@ async function askNotif() {
     iceServers: [
       { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
       { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
     ]
   };
 
@@ -404,6 +422,10 @@ async function askNotif() {
     hideAll();
     requestAnimationFrame(function () { D.phoneScr.classList.add('on'); });
   }
+  function showMain() {
+    hideAll();
+    requestAnimationFrame(function () { D.mainScr.classList.add('on'); });
+  }
 
   function fmtT(s) { return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
   function fmtD(ts) {
@@ -418,9 +440,8 @@ async function askNotif() {
   function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function avOf(u) { return (u && u.avatar) ? u.avatar : DB.uiAv(u ? u.name : 'U'); }
 
-    function playRing() {
+  function playRing() {
     stopRing();
-    /* ★ config.js-এ রিংটোন লিংক থাকলে সেটা বাজবে ★ */
     try {
       if (_C.ring && _C.ring.incoming) {
         var au = new Audio(_C.ring.incoming);
@@ -430,7 +451,6 @@ async function askNotif() {
         return;
       }
     } catch (e) {}
-    /* ডিফল্ট বিপ-বিপ */
     try {
       var c = S.ringCtx = new (window.AudioContext || window.webkitAudioContext)();
       var i = 0;
@@ -450,6 +470,23 @@ async function askNotif() {
     if (S.ringIv) { clearInterval(S.ringIv); S.ringIv = null; }
     if (S.ringAudio) { try { S.ringAudio.pause(); } catch (e) {} S.ringAudio = null; }
     if (S.ringCtx) { try { S.ringCtx.close(); } catch (e) {} S.ringCtx = null; }
+  }
+  function playRingback() {
+    stopRing();
+    try {
+      var c = S.ringCtx = new (window.AudioContext || window.webkitAudioContext)();
+      function p() {
+        if (!S.ringCtx) return;
+        var o = c.createOscillator(), g = c.createGain();
+        o.connect(g); g.connect(c.destination);
+        o.frequency.value = 425;
+        g.gain.setValueAtTime(0.06, c.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 1.2);
+        o.start(); o.stop(c.currentTime + 1.2);
+      }
+      p();
+      S.ringIv = setInterval(p, 3000);
+    } catch (e) {}
   }
   function tone(f1, f2, d) {
     try {
@@ -615,13 +652,22 @@ async function askNotif() {
   });
 
   /* মূল */
-    function enterMain() {
-    unsubAllMain();
-    hideAll();
+  function unsubAllMain() {
+    ['unsubUsers', 'chatListUnsub', 'contactsUnsub', 'historyUnsub', 'unsubCalls'].forEach(function (k) {
+      if (S[k]) { try { S[k](); } catch (e) {} S[k] = null; }
+    });
+    if (S.chatUnsub) { try { S.chatUnsub(); } catch (e) {} S.chatUnsub = null; }
+    if (S.typingUnsub) { try { S.typingUnsub(); } catch (e) {} S.typingUnsub = null; }
+  }
+
+  function enterMain() {
+    if (S.mainEntered) return;
+    S.mainEntered = true;
     clearInterval(S.resendTimer);
     D.resendBtn.disabled = true;
     clearOTP();
     askNotif();
+    saveLocalUser(S.user);
     DB.setOn(S.user.uid);
 
     S.unsubUsers = DB.onUsers(S.user.uid, function (us) { S.users = us; renderChats(); renderContacts(); });
@@ -645,8 +691,7 @@ async function askNotif() {
     S.historyUnsub = DB.onCallHistory(S.user.uid, function (h) { S.callHistory = h; renderHistory(); });
     S.unsubCalls = DB.onIncCall(S.user.uid, incoming);
 
-    hideAll();
-    requestAnimationFrame(function () { D.mainScr.classList.add('on'); });
+    showMain();
   }
 
   var CALL_SVG = '<svg viewBox="0 0 24 24"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg>';
@@ -857,7 +902,6 @@ async function askNotif() {
         S.voiceMap[vid] = { b64: m.voice, mime: m.vmime || 'audio/webm', dur: m.dur || 0 };
         body = '<div class="vmsg"><button class="vplay" data-vid="' + vid + '">▶</button><div class="vbar"><div class="vfill"></div></div><span class="vdur">' + fmtT(m.dur || 0) + '</span></div>';
       } else if (m.type === 'call') {
-        /* ★ WhatsApp-স্টাইল কল লগ বাবল ★ */
         var t = m.callType === 'video' ? 'ভিডিও কল' : 'অডিও কল';
         var st = m.status === 'completed'
           ? (m.dur ? 'সম্পন্ন • ' + fmtT(m.dur) : 'সম্পন্ন')
@@ -1033,8 +1077,8 @@ async function askNotif() {
       '<div class="set-item"><img src="' + esc(avOf(u)) + '" style="width:48px;height:48px;border-radius:50%;object-fit:cover"><div class="si-text"><h4>' + esc(u.name) + '</h4><p>' + esc(u.phone || u.email || '') + '</p></div></div>' +
       '<div class="set-item" id="pItem"><div class="si-icon" style="background:var(--wa-teal)">📷</div><div class="si-text"><h4>প্রোফাইল ছবি বদলান</h4><p>গ্যালারি থেকে</p></div></div>' +
       '<div class="set-item" id="nItem"><div class="si-icon" style="background:#3b82f6">✏️</div><div class="si-text"><h4>নাম পরিবর্তন করুন</h4><p>নাম সেট করুন</p></div></div>' +
-     '<div class="set-item" id="iItem"><div class="si-icon" style="background:#34a853">📲</div><div class="si-text"><h4>অ্যাপ হিসেবে ইনস্টল করুন</h4><p>হোম স্ক্রিনে অ্যাপ আইকন</p></div></div>' +
-     '<div class="set-divider"></div><div class="set-header">অ্যাকাউন্ট</div>' +
+      '<div class="set-item" id="iItem"><div class="si-icon" style="background:#34a853">📲</div><div class="si-text"><h4>অ্যাপ হিসেবে ইনস্টল করুন</h4><p>হোম স্ক্রিনে অ্যাপ আইকন</p></div></div>' +
+      '<div class="set-divider"></div><div class="set-header">অ্যাকাউন্ট</div>' +
       '<div class="set-item" id="lItem"><div class="si-icon" style="background:var(--wa-danger)">🚪</div><div class="si-text"><h4>লগআউট</h4><p>বের হোন</p></div></div>';
 
     q('#pItem').onclick = function () { D.setAvInput.click(); };
@@ -1043,19 +1087,19 @@ async function askNotif() {
       if (n && n.trim()) {
         DB.updateProfile(u.uid, { name: n.trim(), avatar: DB.uiAv(n.trim()) });
         u.name = n.trim(); u.avatar = DB.uiAv(n.trim());
+        saveLocalUser(S.user);
         toast('নাম আপডেট হয়েছে', 'ok');
         renderSet();
       }
     };
     q('#iItem').onclick = function () { installApp(); };
     q('#lItem').onclick = async function () {
-      if (S.unsubUsers) S.unsubUsers();
-      if (S.unsubCalls) S.unsubCalls();
-      if (S.chatListUnsub) S.chatListUnsub();
-      if (S.contactsUnsub) S.contactsUnsub();
-      if (S.historyUnsub) S.historyUnsub();
-      await DB.logout(S.user.uid);
+      var uid = S.user ? S.user.uid : null;
+      unsubAllMain();
+      S.mainEntered = false;
+      clearLocalUser();
       S.user = null; S.chatMsgs = {}; S.chatList = []; S.contacts = []; S.callHistory = []; S.notified = {};
+      await DB.logout(uid);
       showPhone();
       toast('লগআউট হয়েছে', 'ok');
     };
@@ -1069,6 +1113,7 @@ async function askNotif() {
       var url = await DB.uploadImage(f, 512);
       await DB.updateProfile(S.user.uid, { avatar: url });
       S.user.avatar = url;
+      saveLocalUser(S.user);
       toast('ছবি সেভ হয়েছে ✅', 'ok');
       renderSet();
     } catch (e) { toast(e.message || 'ব্যর্থ', 'err'); }
@@ -1087,12 +1132,13 @@ async function askNotif() {
     }, 4000);
   });
 
-  /* কল */
+  /* ================= কল সিস্টেম (ভিডিও ফিক্সসহ) ================= */
   function cleanPC() {
     if (S.candUnsub) { S.candUnsub(); S.candUnsub = null; }
     if (S.callUnsub) { S.callUnsub(); S.callUnsub = null; }
     if (S.pc) { try { S.pc.close(); } catch (e) {} S.pc = null; }
     if (S.localStream) { S.localStream.getTracks().forEach(function (t) { t.stop(); }); S.localStream = null; }
+    S.remoteStream = null;
     clearTimeout(S.outTimeout); clearTimeout(S.incTimeout);
   }
 
@@ -1107,22 +1153,54 @@ async function askNotif() {
     D.callScr.classList.remove('on');
   }
 
+  /* ★ আসল ভিডিও ট্র্যাক ডিটেক্ট করে ভিডিও/অডিও ঠিক করে + জোর করে প্লে ★ */
+  function applyRemoteStream() {
+    var st = S.remoteStream;
+    if (!st) return;
+    var vt = [];
+    try { vt = st.getVideoTracks(); } catch (e) {}
+    var hasVid = vt.length > 0 && vt[0].readyState === 'live' && !vt[0].muted;
+    if (hasVid) {
+      if (D.remVid.srcObject !== st) D.remVid.srcObject = st;
+      D.remAudio.srcObject = null;
+      D.callVid.style.display = '';
+      D.callAv.style.display = 'none';
+      try { var p = D.remVid.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {}
+    } else {
+      if (D.remAudio.srcObject !== st) D.remAudio.srcObject = st;
+      try { var p2 = D.remAudio.play(); if (p2 && p2.catch) p2.catch(function () {}); } catch (e) {}
+    }
+  }
+
   function mkPC(cid, side) {
     var pc = new RTCPeerConnection(RTC_CFG);
-    if (S.localStream) S.localStream.getTracks().forEach(function (t) { pc.addTrack(t, S.localStream); });
+    if (S.localStream) {
+      S.localStream.getTracks().forEach(function (t) { t.enabled = true; pc.addTrack(t, S.localStream); });
+    }
     pc.ontrack = function (e) {
-      if (S.callType === 'video') D.remVid.srcObject = e.streams[0];
-      else D.remAudio.srcObject = e.streams[0];
+      var st = (e.streams && e.streams[0]) || null;
+      if (!st) {
+        if (!S.remoteStream) { try { S.remoteStream = new MediaStream(); } catch (er) { return; } }
+        try { S.remoteStream.addTrack(e.track); } catch (er) {}
+        st = S.remoteStream;
+      }
+      S.remoteStream = st;
+      try {
+        e.track.onunmute = function () { applyRemoteStream(); };
+        e.track.onmute = function () { applyRemoteStream(); };
+      } catch (er) {}
+      applyRemoteStream();
     };
     pc.onicecandidate = function (e) { if (e.candidate) DB.addCandidate(cid, side, e.candidate.toJSON()); };
     pc.onconnectionstatechange = function () {
       if (pc.connectionState === 'connected') {
         S.wasConnected = true;
         stopRing(); tone(880, 1200, 0.25);
+        S.callPhase = 'connected';
+        D.ringCircles.style.display = 'none';
         D.callStTxt.textContent = 'সংযুক্ত';
-                S.callPhase = 'connected';
-        D.callStTxt.style.color = '';
-        if (S.callType === 'video') { D.callVid.style.display = ''; D.callAv.style.display = 'none'; }
+        applyRemoteStream();
+        setTimeout(applyRemoteStream, 700);
         startCallTimer();
       } else if (pc.connectionState === 'failed') {
         if (S.callPhase !== 'ended') endCallNow('failed', false);
@@ -1131,7 +1209,11 @@ async function askNotif() {
     return pc;
   }
 
-  /* ================= কল সিস্টেম (সম্পূর্ণ) ================= */
+  /* স্ক্রিনে ট্যাপ করলে ভিডিও/অডিও আবার চালু — অটোপ্লে ব্লক হলেও কাজ করবে */
+  D.callScr.addEventListener('click', function () {
+    try { if (D.remVid.srcObject) D.remVid.play().catch(function () {}); } catch (e) {}
+    try { if (D.remAudio.srcObject) D.remAudio.play().catch(function () {}); } catch (e) {}
+  });
 
   function startCallTimer() {
     if (S.callTimerIv) return;
@@ -1143,14 +1225,8 @@ async function askNotif() {
       D.callTimer.textContent = fmtT(Math.floor((Date.now() - S.callStart) / 1000));
     }, 1000);
   }
-
   function stopCallTimer() {
     if (S.callTimerIv) { clearInterval(S.callTimerIv); S.callTimerIv = null; }
-  }
-
-  function showMain() {
-    hideAll();
-    requestAnimationFrame(function () { D.mainScr.classList.add('on'); });
   }
 
   async function startLocalMedia() {
@@ -1161,11 +1237,18 @@ async function askNotif() {
         video: wantVideo ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } : false
       });
     } catch (e) {
-      if (wantVideo) toast('ক্যামেরা পাওয়া যায়নি — শুধু অডিও যাবে', 'ok');
-      S.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (wantVideo) {
+        try {
+          S.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          S.callType = 'audio';
+          toast('ক্যামেরা পাওয়া যায়নি — অডিও কল', 'ok');
+          return;
+        } catch (e2) { throw new Error('মাইক/ক্যামেরার অনুমতি দিন'); }
+      }
+      throw new Error('মাইক্রোফোনের অনুমতি দিন');
     }
-    S.isMuted = false;
-    S.isCamOff = false;
+    S.localStream.getTracks().forEach(function (t) { t.enabled = true; });
+    S.isMuted = false; S.isCamOff = false;
   }
 
   function setCallHeader(name, avatar, typeTxt) {
@@ -1189,15 +1272,7 @@ async function askNotif() {
     });
   }
 
-  function unsubAllMain() {
-    ['unsubUsers', 'chatListUnsub', 'contactsUnsub', 'historyUnsub', 'unsubCalls'].forEach(function (k) {
-      if (S[k]) { try { S[k](); } catch (e) {} S[k] = null; }
-    });
-    if (S.chatUnsub) { try { S.chatUnsub(); } catch (e) {} S.chatUnsub = null; }
-    if (S.typingUnsub) { try { S.typingUnsub(); } catch (e) {} S.typingUnsub = null; }
-  }
-
-  /* ---------- কল করা (কলার) ---------- */
+  /* ---------- কল করা ---------- */
   async function call(uid, type) {
     if (S.callActive) { toast('একটি কল ইতিমধ্যে চলছে', 'err'); return; }
     var u = findU(uid);
@@ -1208,7 +1283,6 @@ async function askNotif() {
     S.callPhase = 'outgoing';
     S.iAmCaller = true;
     S.wasConnected = false;
-    S.logWritten = false;
     S.endReason = null;
     S.callType = type;
     S.callTarget = { uid: uid, name: u.name, avatar: avOf(u) };
@@ -1224,8 +1298,11 @@ async function askNotif() {
 
     try {
       await startLocalMedia();
-      D.callTypeTxt.textContent = S.callType === 'video' ? 'ভিডিও কল' : 'অডিও কল';
-      if (S.callType === 'video') { D.locVid.srcObject = S.localStream; D.pipWrap.classList.remove('off'); }
+      setCallHeader(S.callTarget.name, S.callTarget.avatar, S.callType === 'video' ? 'ভিডিও কল' : 'অডিও কল');
+      if (S.callType === 'video' && S.localStream.getVideoTracks().length) {
+        D.locVid.srcObject = S.localStream;
+        D.pipWrap.classList.remove('off');
+      }
       playRingback();
 
       S.callDocId = await DB.mkCall({
@@ -1235,9 +1312,11 @@ async function askNotif() {
       }, null);
 
       S.pc = mkPC(S.callDocId, 'caller');
-      var offer = await S.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: S.callType === 'video' });
+      var offer;
+      try { offer = await S.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: S.callType === 'video' }); }
+      catch (e) { offer = await S.pc.createOffer(); }
       await S.pc.setLocalDescription(offer);
-      await DB.updCall(S.callDocId, { offer: offer });
+      await DB.updCall(S.callDocId, { offer: offer, type: S.callType });
 
       S.candUnsub = DB.onCandidates(S.callDocId, 'callee', function (c) {
         if (S.pc && c && c.candidate) S.pc.addIceCandidate(c).catch(function () {});
@@ -1246,9 +1325,11 @@ async function askNotif() {
       S.callUnsub = DB.watchCall(S.callDocId, function (d) {
         if (S.callPhase === 'ended') return;
         if (d.status === 'accepted') {
-          S.callPhase = 'connecting';
-          D.ringCircles.style.display = 'none';
-          D.callStTxt.textContent = 'সংযোগ হচ্ছে...';
+          if (S.callPhase !== 'connected') {
+            S.callPhase = 'connecting';
+            D.ringCircles.style.display = 'none';
+            D.callStTxt.textContent = 'সংযোগ হচ্ছে...';
+          }
           if (d.answer && S.pc && S.pc.signalingState === 'have-local-offer') {
             S.pc.setRemoteDescription(d.answer).catch(function () {});
           }
@@ -1269,25 +1350,7 @@ async function askNotif() {
     }
   }
 
-  function playRingback() {
-    stopRing();
-    try {
-      var c = S.ringCtx = new (window.AudioContext || window.webkitAudioContext)();
-      function p() {
-        if (!S.ringCtx) return;
-        var o = c.createOscillator(), g = c.createGain();
-        o.connect(g); g.connect(c.destination);
-        o.frequency.value = 425;
-        g.gain.setValueAtTime(0.06, c.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 1.2);
-        o.start(); o.stop(c.currentTime + 1.2);
-      }
-      p();
-      S.ringIv = setInterval(p, 3000);
-    } catch (e) {}
-  }
-
-  /* ---------- ইনকামিং কল ---------- */
+  /* ---------- ইনকামিং ---------- */
   function incoming(c) {
     if (!S.user) return;
     if (S.callActive) { DB.updCall(c.id, { status: 'ended', endReason: 'busy' }); return; }
@@ -1296,7 +1359,6 @@ async function askNotif() {
     S.callPhase = 'incoming';
     S.iAmCaller = false;
     S.wasConnected = false;
-    S.logWritten = false;
     S.callDocId = c.id;
     S.callType = c.type || 'audio';
     S.incOffer = c.offer || null;
@@ -1313,7 +1375,6 @@ async function askNotif() {
     vibrate([500, 300, 500, 300, 500, 300, 500, 300, 500, 300, 500, 300]);
     showNotif('📞 ইনকামিং কল', S.callTarget.name, 'call' + c.id);
 
-    /* কলার কেটে দিলে পপআপ সরে যাবে */
     if (S.incWatchUnsub) { try { S.incWatchUnsub(); } catch (e) {} }
     S.incWatchUnsub = DB.watchCall(c.id, function (d) {
       if (S.callPhase !== 'incoming') return;
@@ -1327,7 +1388,6 @@ async function askNotif() {
       }
     });
 
-    /* ৪৫ সেকেন্ডে কেউ ধরেনি = মিসড কল */
     clearTimeout(S.incTimeout);
     S.incTimeout = setTimeout(function () {
       if (S.callPhase !== 'incoming') return;
@@ -1340,7 +1400,7 @@ async function askNotif() {
     }, 45000);
   }
 
-  /* ---------- কল একসেপ্ট (কলি) ---------- */
+  /* ---------- একসেপ্ট ---------- */
   async function acceptCall() {
     if (S.callPhase !== 'incoming') return;
     clearTimeout(S.incTimeout);
@@ -1349,7 +1409,7 @@ async function askNotif() {
     S.callPhase = 'connecting';
     D.incPop.classList.remove('on');
 
-    setCallHeader(S.callTarget.name, S.callTarget.avatar, S.callType === 'video' ? 'ভিডিও কল' : 'অডিও কল');
+    setCallHeader(S.callTarget.name, S.callTarget.avatar, 'সংযোগ হচ্ছে...');
     D.callStTxt.textContent = 'সংযোগ হচ্ছে...';
     D.callTimer.style.display = 'none';
     D.ringCircles.style.display = 'none';
@@ -1359,17 +1419,24 @@ async function askNotif() {
     requestAnimationFrame(function () { D.callScr.classList.add('on'); });
 
     try {
-      var tries = 0;
-      while (!S.incOffer && tries < 15) {
+      var d0 = null, tries = 0;
+      while (tries < 15) {
+        d0 = await getCallDoc(S.callDocId);
+        if (d0 && d0.offer) break;
         await new Promise(function (r) { setTimeout(r, 300); });
-        var d = await getCallDoc(S.callDocId);
-        if (d && d.offer) S.incOffer = d.offer;
         tries++;
       }
-      if (!S.incOffer) throw new Error('কল সংযোগ পাওয়া যায়নি — আবার চেষ্টা করুন');
+      if (!d0 || !d0.offer) throw new Error('কল সংযোগ পাওয়া যায়নি');
+      if (d0.type) S.callType = d0.type;
+      S.incOffer = d0.offer;
+
+      setCallHeader(S.callTarget.name, S.callTarget.avatar, S.callType === 'video' ? 'ভিডিও কল' : 'অডিও কল');
 
       await startLocalMedia();
-      if (S.callType === 'video') { D.locVid.srcObject = S.localStream; D.pipWrap.classList.remove('off'); }
+      if (S.callType === 'video' && S.localStream.getVideoTracks().length) {
+        D.locVid.srcObject = S.localStream;
+        D.pipWrap.classList.remove('off');
+      }
 
       S.pc = mkPC(S.callDocId, 'callee');
       await S.pc.setRemoteDescription(S.incOffer);
@@ -1390,7 +1457,7 @@ async function askNotif() {
     }
   }
 
-  /* ---------- কল রিজেক্ট ---------- */
+  /* ---------- রিজেক্ট ---------- */
   function rejectCall() {
     if (S.callPhase !== 'incoming') return;
     clearTimeout(S.incTimeout);
@@ -1428,7 +1495,6 @@ async function askNotif() {
         : (reason === 'rejected' ? 'rejected' : (iAmCaller ? 'noanswer' : 'missed'));
       addMyLog(target, iAmCaller ? 'out' : 'in', type, st, dur);
 
-      /* চ্যাটে কল-বাবল — শুধু কলার লেখে (ডুপ্লিকেট এড়াতে) */
       if (iAmCaller) {
         var bst = wasConnected ? 'completed' : (reason === 'rejected' ? 'rejected' : 'noanswer');
         DB.sendMsg(DB.chatId(S.user.uid, target.uid), {
@@ -1450,7 +1516,6 @@ async function askNotif() {
     S.iAmCaller = false;
     S.wasConnected = false;
     S.endReason = null;
-    S.logWritten = false;
     S.incOffer = null;
     S.isMuted = false;
     S.isCamOff = false;
@@ -1458,7 +1523,7 @@ async function askNotif() {
     stopCallTimer();
   }
 
-  /* ---------- কল বাটনগুলো ---------- */
+  /* ---------- কল বাটন ---------- */
   D.endBtn.addEventListener('click', function () {
     endCallNow(S.wasConnected ? 'normal' : (S.iAmCaller ? 'cancelled' : 'normal'), false);
   });
@@ -1483,12 +1548,8 @@ async function askNotif() {
   });
   D.accBtn.addEventListener('click', acceptCall);
   D.rejBtn.addEventListener('click', rejectCall);
-  D.chatCallBtn.addEventListener('click', function () {
-    if (S.chatTarget) call(S.chatTarget.uid, 'audio');
-  });
-  D.chatVidBtn.addEventListener('click', function () {
-    if (S.chatTarget) call(S.chatTarget.uid, 'video');
-  });
+  D.chatCallBtn.addEventListener('click', function () { if (S.chatTarget) call(S.chatTarget.uid, 'audio'); });
+  D.chatVidBtn.addEventListener('click', function () { if (S.chatTarget) call(S.chatTarget.uid, 'video'); });
 
   /* ---------- PWA ইনস্টল ---------- */
   var deferredPrompt = null;
@@ -1496,16 +1557,23 @@ async function askNotif() {
     e.preventDefault();
     deferredPrompt = e;
   });
+  window.addEventListener('appinstalled', function () {
+    deferredPrompt = null;
+    toast('অ্যাপ ইনস্টল হয়েছে ✅', 'ok');
+  });
   function installApp() {
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+      toast('অ্যাপ ইতিমধ্যে ইনস্টল আছে ✅', 'ok'); return;
+    }
     if (deferredPrompt) {
       deferredPrompt.prompt();
       deferredPrompt.userChoice.then(function () { deferredPrompt = null; });
     } else {
-      toast('ব্রাউজার মেনু (⋮) থেকে "Add to Home screen" দিন', 'ok');
+      toast('Chrome মেনু (⋮) → "Install app" / "Add to Home screen" চাপুন', 'ok');
     }
   }
 
-  /* ---------- স্টার্টআপ ---------- */
+  /* ---------- স্টার্টআপ ★ লগইন স্ক্রিন ফ্ল্যাশ করবে না ★ ---------- */
   function hideBoot() {
     var b = q('#bootLoader');
     if (b) {
@@ -1513,24 +1581,43 @@ async function askNotif() {
       setTimeout(function () { if (b.parentNode) b.parentNode.removeChild(b); }, 500);
     }
   }
-  window.addEventListener('load', function () { setTimeout(hideBoot, 1500); });
-  setTimeout(hideBoot, 6000);
 
-  try {
-    DB.init();
-  } catch (e) {
-    toast(e.message, 'err');
+  try { DB.init(); } catch (e) { toast(e.message, 'err'); hideBoot(); }
+
+  /* ক্যাশে সেভ করা ইউজার থাকলে সরাসরি মেইন স্ক্রিন — লগইন দেখাবেই না */
+  var cachedUser = getLocalUser();
+  if (cachedUser && cachedUser.uid) {
+    S.user = cachedUser;
+    enterMain();
     hideBoot();
   }
 
-  var firstAuth = true;
   DB.onAuth(function (u) {
-    S.user = u;
-    if (u) enterMain();
-    else if (!firstAuth) showPhone();
-    firstAuth = false;
-    hideBoot();
+    if (u && S.user && S.user.uid === u.uid) {
+      S.user = u;
+      saveLocalUser(u);
+      hideBoot();
+      return;
+    }
+    if (u) {
+      if (S.mainEntered) { unsubAllMain(); S.mainEntered = false; }
+      S.user = u;
+      enterMain();
+      hideBoot();
+    } else {
+      if (S.mainEntered) { unsubAllMain(); S.mainEntered = false; }
+      S.user = null;
+      clearLocalUser();
+      showPhone();
+      hideBoot();
+    }
   });
+
+  /* নিরাপত্তা: ৭ সেকেন্ড পরেও কিছু না খুললে লগইন স্ক্রিন দেখাও */
+  setTimeout(function () {
+    if (!S.mainEntered && !document.querySelector('.scr.on')) showPhone();
+    hideBoot();
+  }, 7000);
 
   window.addEventListener('beforeunload', function () {
     if (S.user) DB.setOff(S.user.uid);
